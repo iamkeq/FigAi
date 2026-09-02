@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 function vaultRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "mattgpt-brain-"));
+  const root = mkdtempSync(join(tmpdir(), "figai-brain-"));
   roots.push(root);
   for (const path of [
     ".obsidian",

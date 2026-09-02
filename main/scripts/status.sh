@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/platform.sh"
 
-if [[ "$MATTGPT_PLATFORM" == "darwin" ]]; then
+if [[ "$FIGAI_PLATFORM" == "darwin" ]]; then
   launchctl print "gui/$UID/$APP_ID" || {
-    printf 'MattGPT is not loaded.\n' >&2
+    printf 'FigAi is not loaded.\n' >&2
     exit 1
   }
   printf 'Recent stderr:\n'

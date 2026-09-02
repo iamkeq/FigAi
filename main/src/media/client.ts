@@ -734,11 +734,11 @@ export class MediaServiceClient {
     if (!response.ok) throw new Error(`${service} returned HTTP ${response.status}.`);
     const declared = Number(response.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
-      throw new Error(`${service} returned more than MattGPT's 2 MB response limit.`);
+      throw new Error(`${service} returned more than FigAi's 2 MB response limit.`);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.byteLength > MAX_RESPONSE_BYTES) {
-      throw new Error(`${service} returned more than MattGPT's 2 MB response limit.`);
+      throw new Error(`${service} returned more than FigAi's 2 MB response limit.`);
     }
     if (bytes.byteLength === 0) return {};
     let parsed: unknown;

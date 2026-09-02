@@ -95,7 +95,7 @@ export class AttachmentManager {
     const advertisedTotal = candidates.reduce((sum, file) => sum + Math.max(0, file.size), 0);
     if (advertisedTotal > MAX_TOTAL_BYTES)
       throw new Error("Attachments exceed the 20 MB total limit.");
-    const directory = mkdtempSync(join(tmpdir(), "mattgpt-"));
+    const directory = mkdtempSync(join(tmpdir(), "figai-"));
     chmodSync(directory, 0o700);
     const parts: ModelContentPart[] = [];
     let actualTotal = 0;

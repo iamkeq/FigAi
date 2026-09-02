@@ -30,6 +30,7 @@ describe("SQLite and memories", () => {
       { version: 14 },
       { version: 15 },
       { version: 16 },
+      { version: 17 },
     ]);
     expect(db.raw.query("PRAGMA table_info(temporary_directives)").all()).toContainEqual(
       expect.objectContaining({ name: "policy_json" }),

@@ -202,7 +202,7 @@ export class SlackProfileService implements UserProfileProvider {
       if (!actualMime || actualMime !== declaredMime || !IMAGE_MIMES.has(actualMime)) {
         throw new Error("The Slack profile image content does not match its declared type.");
       }
-      directory = mkdtempSync(join(tmpdir(), "mattgpt-avatar-"));
+      directory = mkdtempSync(join(tmpdir(), "figai-avatar-"));
       chmodSync(directory, 0o700);
       const extension = actualMime === "image/jpeg" ? "jpg" : actualMime.replace("image/", "");
       const path = join(directory, `avatar.${extension}`);

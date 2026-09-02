@@ -17,6 +17,7 @@ import {
 } from "../db/preferences.ts";
 import type { ReminderRepository } from "../db/reminders.ts";
 import type { SkillRepository } from "../db/skills.ts";
+import type { SshCommandRepository } from "../db/ssh.ts";
 import {
   completionForWorkflow,
   type WorkflowCompletionPolicy,
@@ -29,6 +30,7 @@ import {
 import type { MediaServiceClient } from "../media/client.ts";
 import { MODEL_ID, type ModelControl, PRIMARY_MODEL_SETTING } from "../models.ts";
 import { parseFirstRun } from "../reminders/recurrence.ts";
+import type { SshClient } from "../ssh/client.ts";
 import type { RuntimeContext, ScheduleDelivery } from "../types.ts";
 import { SafeUrlReader } from "../web/url-reader.ts";
 
@@ -190,7 +192,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "inspect_media_service",
       description:
-        "Read configured Sonarr, Radarr, or SABnzbd status, queues, history, libraries, or selected sanitized configuration. This tool is available in any Slack conversation MattGPT is authorized to serve, is read-only, and never changes media, downloads, or settings. Use only for an explicit request about the configured media services.",
+        "Read configured Sonarr, Radarr, or SABnzbd status, queues, history, libraries, or selected sanitized configuration. This tool is available in any Slack conversation FigAi is authorized to serve, is read-only, and never changes media, downloads, or settings. Use only for an explicit request about the configured media services.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -630,7 +632,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "create_scheduled_task",
       description:
-        "Schedule one future MattGPT agent run when execution requires reasoning, current information, web or Brain retrieval, a tool/state change, or multiple ordered effects. This includes compound requests such as 'at 9 remind me, then ignore me until I say it is done'. Store every requested step and condition in one self-contained command; do not also create an immediate reminder or directive for those future steps. Rewrite references such as 'that' before calling. In a channel, do not call until the requester explicitly chooses the current thread, a new top-level channel message, or a DM. In a DM, omitted delivery defaults to DM. Call only with an unambiguous ISO date/time.",
+        "Schedule one future FigAi agent run when execution requires reasoning, current information, web or Brain retrieval, a tool/state change, or multiple ordered effects. This includes compound requests such as 'at 9 remind me, then ignore me until I say it is done'. Store every requested step and condition in one self-contained command; do not also create an immediate reminder or directive for those future steps. Rewrite references such as 'that' before calling. In a channel, do not call until the requester explicitly chooses the current thread, a new top-level channel message, or a DM. In a DM, omitted delivery defaults to DM. Call only with an unambiguous ISO date/time.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -692,7 +694,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "create_workflow",
       description:
-        "Create one owner-only durable, event-driven Slack workflow when a request must send messages, wait for later text or attachment evidence, branch on a timeout, repeat notifications, and stop semantically. The runtime persists the graph and wakes only for due timers, requester messages, or trusted successful MattGPT tool events; it is not a continuously running agent. The nodes argument MUST be a JSON array of node objects, never an object/map keyed by node ID. Only message, delay, await, repeat, and complete node types exist: never invent agent, process, tool, or condition nodes. Await and repeat nodes use the declared matches array; complete nodes use message, not text. When completion depends on a count of successful To Do removals, always include completion_policy so the runtime accumulates those tool results across turns and routes to a complete node at the target. Keep the semantic Slack matches as an alternate completion path when the user's words could independently establish completion. A scheduled starts_at is already the first activation: never duplicate that wait with an initial delay node. Any time window in which a reply or attachment should count must be an await node with timeout_seconds and on_timeout, never a delay node. Explicit call-off is handled for every await/repeat node and posts cancel_message, so do not add a separate call-off match. Treat ordinary first-person photo proof as credible POV evidence, including a recognizable normal step underway, without requiring the requester in frame unless they explicitly ask for a selfie or visible identity. Message text is the exact user-facing Slack copy, not an instruction to another agent. Every path must eventually reach complete or a bounded repeat. Terminal workflows are retained for audit and soft-deleted automatically. Use an ordinary reminder, scheduled task, or temporary directive when no event-driven wait/branch/repeat is needed.",
+        "Create one owner-only durable, event-driven Slack workflow when a request must send messages, wait for later text or attachment evidence, branch on a timeout, repeat notifications, and stop semantically. The runtime persists the graph and wakes only for due timers, requester messages, or trusted successful FigAi tool events; it is not a continuously running agent. The nodes argument MUST be a JSON array of node objects, never an object/map keyed by node ID. Only message, delay, await, repeat, and complete node types exist: never invent agent, process, tool, or condition nodes. Await and repeat nodes use the declared matches array; complete nodes use message, not text. When completion depends on a count of successful To Do removals, always include completion_policy so the runtime accumulates those tool results across turns and routes to a complete node at the target. Keep the semantic Slack matches as an alternate completion path when the user's words could independently establish completion. A scheduled starts_at is already the first activation: never duplicate that wait with an initial delay node. Any time window in which a reply or attachment should count must be an await node with timeout_seconds and on_timeout, never a delay node. Explicit call-off is handled for every await/repeat node and posts cancel_message, so do not add a separate call-off match. Treat ordinary first-person photo proof as credible POV evidence, including a recognizable normal step underway, without requiring the requester in frame unless they explicitly ask for a selfie or visible identity. Message text is the exact user-facing Slack copy, not an instruction to another agent. Every path must eventually reach complete or a bounded repeat. Terminal workflows are retained for audit and soft-deleted automatically. Use an ordinary reminder, scheduled task, or temporary directive when no event-driven wait/branch/repeat is needed.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -877,7 +879,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "get_recent_actions",
       description:
-        "Read sanitized records of MattGPT's recent tool activity for this exact Slack thread and requester. Use when the user asks what MattGPT previously did, whether it called a tool, or why an action happened. Never guess about prior tool activity when this tool is available. Raw arguments, content, results, and action target IDs are not retained.",
+        "Read sanitized records of FigAi's recent tool activity for this exact Slack thread and requester. Use when the user asks what FigAi previously did, whether it called a tool, or why an action happened. Never guess about prior tool activity when this tool is available. Raw arguments, content, results, and action target IDs are not retained.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -889,7 +891,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     type: "function",
     function: {
       name: "get_status",
-      description: "Get MattGPT's local service, database, and backup status.",
+      description: "Get FigAi's local service, database, and backup status.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
     },
   },
@@ -898,7 +900,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "list_skills",
       description:
-        "List MattGPT's global instruction skills. Disabled skills are visible only to the owner when explicitly requested.",
+        "List FigAi's global instruction skills. Disabled skills are visible only to the owner when explicitly requested.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -993,6 +995,54 @@ export const toolDefinitions: FunctionToolDefinition[] = [
   {
     type: "function",
     function: {
+      name: "list_ssh_hosts",
+      description:
+        "List the configured SSH host aliases available for propose_ssh_command. Owner-only. Never reveals hostnames, users, ports, or key paths.",
+      parameters: { type: "object", additionalProperties: false, properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "propose_ssh_command",
+      description:
+        "Draft one SSH command to run on one configured host alias, for owner review. Owner-only. Use only when the owner explicitly asks to run a specific command on a specific configured machine. This never executes the command; it always requires a later explicit owner confirmation via resolve_ssh_command in the same thread. Never invent a host alias; call list_ssh_hosts first if unsure which aliases are configured.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["host_alias", "command"],
+        properties: {
+          host_alias: { type: "string", minLength: 1, maxLength: 32 },
+          command: { type: "string", minLength: 1, maxLength: 4000 },
+          reason: {
+            type: "string",
+            minLength: 1,
+            maxLength: 300,
+            description: "Optional short explanation shown in the preview.",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "resolve_ssh_command",
+      description:
+        "Confirm or cancel the current thread's pending SSH command proposal. Owner-only. No proposal ID is needed: the pending draft is securely resolved from the trusted current thread. Confirm only after a later explicit owner message approves the exact previewed host and command; confirming executes that command immediately over SSH and returns its bounded, untrusted stdout, stderr, and exit code. Never confirm in the same turn the proposal was drafted.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["decision"],
+        properties: {
+          decision: { type: "string", enum: ["confirm", "cancel"] },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_session_stats",
       description:
         "Get provider-reported cost, token, latency, model, and tool usage for the latest completed answer and current Slack thread. Use when asked how much an answer cost or about this thread's usage; do not estimate.",
@@ -1012,7 +1062,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "set_primary_model",
       description:
-        "Immediately change the primary OpenRouter model. This is restricted to the MattGPT owner.",
+        "Immediately change the primary OpenRouter model. This is restricted to the FigAi owner.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -1026,7 +1076,7 @@ export const toolDefinitions: FunctionToolDefinition[] = [
     function: {
       name: "reset_primary_model",
       description:
-        "Reset the primary model to the configured default. This is restricted to the MattGPT owner.",
+        "Reset the primary model to the configured default. This is restricted to the FigAi owner.",
       parameters: { type: "object", additionalProperties: false, properties: {} },
     },
   },
@@ -1271,6 +1321,13 @@ const calls = {
     id: z.number().int().positive(),
     state: z.enum(["enabled", "disabled", "deleted"]),
   }),
+  list_ssh_hosts: z.object({}),
+  propose_ssh_command: z.object({
+    host_alias: z.string().trim().min(1).max(32),
+    command: z.string().trim().min(1).max(4000),
+    reason: z.string().trim().min(1).max(300).optional(),
+  }),
+  resolve_ssh_command: z.object({ decision: z.enum(["confirm", "cancel"]) }),
   get_session_stats: z.object({}),
   get_primary_model: z.object({}),
   set_primary_model: z.object({ model: z.string().min(3).max(200).regex(MODEL_ID) }),
@@ -1328,6 +1385,8 @@ export class ToolExecutor {
     ),
     private readonly directivePolicyCompiler: DirectivePolicyCompiler | null = null,
     private readonly workflows: WorkflowRepository | null = null,
+    private readonly ssh: SshClient | null = null,
+    private readonly sshCommands: SshCommandRepository | null = null,
   ) {}
 
   private requireBrain(): BrainRepository {
@@ -1717,7 +1776,7 @@ export class ToolExecutor {
       case "list_skills": {
         const args = calls.list_skills.parse(parsedJson);
         if (args.include_disabled && context.requesterId !== this.ownerUserId) {
-          throw new Error("Only the MattGPT owner can inspect disabled skills.");
+          throw new Error("Only the FigAi owner can inspect disabled skills.");
         }
         return this.skills.catalog(args.include_disabled);
       }
@@ -1789,6 +1848,69 @@ export class ToolExecutor {
           actorUserId: context.requesterId,
         });
       }
+      case "list_ssh_hosts": {
+        calls.list_ssh_hosts.parse(parsedJson);
+        this.requireOwner(context, "list configured SSH hosts");
+        if (!this.ssh) throw new Error("SSH access is not configured.");
+        return { hosts: this.ssh.aliases() };
+      }
+      case "propose_ssh_command": {
+        const args = calls.propose_ssh_command.parse(parsedJson);
+        this.requireOwner(context, "run SSH commands");
+        if (!this.ssh || !this.sshCommands) throw new Error("SSH access is not configured.");
+        if (!this.ssh.aliases().includes(args.host_alias)) {
+          throw new Error(
+            `No SSH host is configured for "${args.host_alias}". Call list_ssh_hosts.`,
+          );
+        }
+        const proposal = this.sshCommands.propose({
+          hostAlias: args.host_alias,
+          command: args.command,
+          ...(args.reason ? { reason: args.reason } : {}),
+          context,
+        });
+        return {
+          proposalId: proposal.id,
+          hostAlias: proposal.host_alias,
+          command: proposal.command,
+          reason: proposal.reason,
+          expiresAt: proposal.expires_at,
+          requiresLaterConfirmation: true,
+        };
+      }
+      case "resolve_ssh_command": {
+        const args = calls.resolve_ssh_command.parse(parsedJson);
+        this.requireOwner(context, "run SSH commands");
+        if (!this.ssh || !this.sshCommands) throw new Error("SSH access is not configured.");
+        const resolution = this.sshCommands.resolvePending({ decision: args.decision, context });
+        if (!resolution.confirmed || !resolution.proposal) {
+          return { confirmed: false, cancelled: true };
+        }
+        const proposal = resolution.proposal;
+        return this.ssh.run(proposal.host_alias, proposal.command).then((result) => {
+          this.sshCommands?.recordExecution({
+            proposalId: proposal.id,
+            hostAlias: proposal.host_alias,
+            command: proposal.command,
+            actorUserId: context.requesterId,
+            exitCode: result.exitCode,
+            timedOut: result.timedOut,
+          });
+          return {
+            confirmed: true,
+            cancelled: false,
+            untrusted: true,
+            hostAlias: proposal.host_alias,
+            command: proposal.command,
+            exitCode: result.exitCode,
+            timedOut: result.timedOut,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            stdoutTruncated: result.stdoutTruncated,
+            stderrTruncated: result.stderrTruncated,
+          };
+        });
+      }
       case "get_session_stats":
         calls.get_session_stats.parse(parsedJson);
         return this.db.getSessionStats({
@@ -1802,7 +1924,7 @@ export class ToolExecutor {
       case "set_primary_model": {
         const args = calls.set_primary_model.parse(parsedJson);
         if (context.requesterId !== this.ownerUserId) {
-          throw new Error("Only the MattGPT owner can change the model.");
+          throw new Error("Only the FigAi owner can change the model.");
         }
         return this.models.resolveModel(args.model).then((resolved) => {
           if (!resolved) {
@@ -1818,7 +1940,7 @@ export class ToolExecutor {
       case "reset_primary_model":
         calls.reset_primary_model.parse(parsedJson);
         if (context.requesterId !== this.ownerUserId) {
-          throw new Error("Only the MattGPT owner can change the model.");
+          throw new Error("Only the FigAi owner can change the model.");
         }
         this.db.deleteSetting(PRIMARY_MODEL_SETTING);
         this.models.setPrimaryModel(this.defaultPrimaryModel);
@@ -1830,7 +1952,7 @@ export class ToolExecutor {
 
   private requireOwner(context: RuntimeContext, action: string): void {
     if (context.requesterId !== this.ownerUserId || !context.isOwner) {
-      throw new Error(`Only the MattGPT owner can ${action}.`);
+      throw new Error(`Only the FigAi owner can ${action}.`);
     }
   }
 

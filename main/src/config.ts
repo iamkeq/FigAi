@@ -19,6 +19,22 @@ const serviceUrl = z
     );
   }, "must be an HTTP(S) base URL without credentials, query parameters, or a fragment");
 
+const SSH_ALIAS_PATTERN = /^[a-z][a-z0-9_-]{0,31}$/;
+
+const sshHostEntrySchema = z.object({
+  host: z.string().trim().min(1).max(255),
+  user: z.string().trim().min(1).max(64),
+  port: z.number().int().min(1).max(65535).optional().default(22),
+  keyPath: z.string().trim().min(1).max(1000).optional(),
+});
+
+const sshHostsSchema = z
+  .record(z.string(), sshHostEntrySchema)
+  .refine(
+    (value) => Object.keys(value).every((alias) => SSH_ALIAS_PATTERN.test(alias)),
+    "host aliases must be lowercase alphanumeric with - or _, starting with a letter",
+  );
+
 const schema = z
   .object({
     SLACK_BOT_TOKEN: z.string().regex(/^xoxb-/),
@@ -48,9 +64,38 @@ const schema = z
     RADARR_API_KEY: z.string().min(1).optional(),
     SABNZBD_URL: serviceUrl.optional(),
     SABNZBD_API_KEY: z.string().min(1).optional(),
+    SSH_HOSTS_JSON: z
+      .string()
+      .optional()
+      .transform((value, ctx) => {
+        if (!value) return undefined;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(value);
+        } catch {
+          ctx.addIssue({ code: "custom", message: "SSH_HOSTS_JSON must be valid JSON" });
+          return z.NEVER;
+        }
+        const result = sshHostsSchema.safeParse(parsed);
+        if (!result.success) {
+          ctx.addIssue({
+            code: "custom",
+            message: `SSH_HOSTS_JSON: ${z.prettifyError(result.error)}`,
+          });
+          return z.NEVER;
+        }
+        if (Object.keys(result.data).length === 0) {
+          ctx.addIssue({
+            code: "custom",
+            message: "SSH_HOSTS_JSON must configure at least one host",
+          });
+          return z.NEVER;
+        }
+        return result.data;
+      }),
     DEFAULT_TIMEZONE: z.string().min(1).default("America/New_York"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-    MATTGPT_DATA_DIR: z.string().optional(),
+    FIGAI_DATA_DIR: z.string().optional(),
   })
   .superRefine((value, context) => {
     for (const [service, url, key] of [
@@ -67,6 +112,13 @@ const schema = z
     }
   });
 
+export interface SshHostConnection {
+  host: string;
+  user: string;
+  port: number;
+  keyPath: string | null;
+}
+
 export interface AppConfig {
   slackBotToken: string;
   slackAppToken: string;
@@ -80,6 +132,7 @@ export interface AppConfig {
   imageGenerationModel: string;
   brainVaultPath: string | null;
   mediaConnections: MediaConnections;
+  sshHosts: ReadonlyMap<string, SshHostConnection>;
   defaultTimezone: string;
   logLevel: "debug" | "info" | "warn" | "error";
   dataDir: string;
@@ -95,9 +148,9 @@ function mediaConnection(baseUrl?: string, apiKey?: string): MediaConnection | n
 export function parseConfig(env: Record<string, string | undefined>): AppConfig {
   const result = schema.safeParse(env);
   if (!result.success) {
-    throw new Error(`Invalid MattGPT configuration: ${z.prettifyError(result.error)}`);
+    throw new Error(`Invalid FigAi configuration: ${z.prettifyError(result.error)}`);
   }
-  const dataDir = resolve(result.data.MATTGPT_DATA_DIR ?? defaultDataDir(env));
+  const dataDir = resolve(result.data.FIGAI_DATA_DIR ?? defaultDataDir(env));
   return {
     slackBotToken: result.data.SLACK_BOT_TOKEN,
     slackAppToken: result.data.SLACK_APP_TOKEN,
@@ -117,10 +170,16 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
       radarr: mediaConnection(result.data.RADARR_URL, result.data.RADARR_API_KEY),
       sabnzbd: mediaConnection(result.data.SABNZBD_URL, result.data.SABNZBD_API_KEY),
     },
+    sshHosts: new Map(
+      Object.entries(result.data.SSH_HOSTS_JSON ?? {}).map(([alias, entry]) => [
+        alias,
+        { host: entry.host, user: entry.user, port: entry.port, keyPath: entry.keyPath ?? null },
+      ]),
+    ),
     defaultTimezone: result.data.DEFAULT_TIMEZONE,
     logLevel: result.data.LOG_LEVEL,
     dataDir,
-    databasePath: join(dataDir, "mattgpt.sqlite"),
+    databasePath: join(dataDir, "figai.sqlite"),
     backupDir: join(dataDir, "backups"),
   };
 }

@@ -6,7 +6,7 @@ import { AttachmentManager, selectAttachments, sniffMime } from "../src/files.ts
 
 const fixture = (name: string) => readFileSync(join(import.meta.dir, "fixtures", name));
 const tempDirectories = () =>
-  new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("mattgpt-")));
+  new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("figai-")));
 
 describe("attachments", () => {
   test("sniffs allowed image and PDF signatures", () => {

@@ -15,9 +15,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            artifact: mattgpt-macos
+            artifact: figai-macos
           - os: ubuntu-latest
-            artifact: mattgpt-linux-x64
+            artifact: figai-linux-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/mattgpt
+          path: dist/figai
           if-no-files-found: error
 
   linux-arm64-binary:
@@ -46,6 +46,6 @@ jobs:
       - run: bun run build:linux:arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: mattgpt-linux-arm64
-          path: dist/mattgpt
+          name: figai-linux-arm64
+          path: dist/figai
           if-no-files-found: error

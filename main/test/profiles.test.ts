@@ -8,7 +8,7 @@ import { context } from "./helpers.ts";
 
 const fixture = (name: string) => readFileSync(join(import.meta.dir, "fixtures", name));
 const tempDirectories = () =>
-  new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("mattgpt-avatar-")));
+  new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("figai-avatar-")));
 
 function slackUser(overrides: Record<string, unknown> = {}) {
   return {

@@ -127,7 +127,7 @@ export class SlackScheduledTaskRunner implements ScheduledTaskRunner {
       },
       {
         role: "user" as const,
-        content: `This is a ${task.recurrence === "once" ? "one-time" : `${task.recurrence} recurring`} scheduled task that the requester explicitly asked MattGPT to execute now. The saved command is the requester's authorization for only the listed, normally permitted actions. Execute its ordered steps now instead of rescheduling them; when it says to begin a temporary behavior now, create the directive with activation=now and no starts_at. Use current information and the normal tools as needed. Write the result as a self-contained scheduled update that makes sense without the original Slack conversation. Lead with the subject and current finding; never begin with a conversational acknowledgment such as "yes," "sure," "as requested," or "here you go." If the command explicitly requires no message when a condition is met and that condition is met, call complete_scheduled_task_silently; never return empty assistant content.\n\nCommand:\n${task.text}${presentation}`,
+        content: `This is a ${task.recurrence === "once" ? "one-time" : `${task.recurrence} recurring`} scheduled task that the requester explicitly asked FigAi to execute now. The saved command is the requester's authorization for only the listed, normally permitted actions. Execute its ordered steps now instead of rescheduling them; when it says to begin a temporary behavior now, create the directive with activation=now and no starts_at. Use current information and the normal tools as needed. Write the result as a self-contained scheduled update that makes sense without the original Slack conversation. Lead with the subject and current finding; never begin with a conversational acknowledgment such as "yes," "sure," "as requested," or "here you go." If the command explicitly requires no message when a condition is met and that condition is met, call complete_scheduled_task_silently; never return empty assistant content.\n\nCommand:\n${task.text}${presentation}`,
       },
     ];
 
@@ -195,7 +195,7 @@ export class SlackScheduledTaskRunner implements ScheduledTaskRunner {
     for (const [index, image] of result.images.entries()) {
       const extension =
         image.mediaType === "image/jpeg" ? "jpg" : image.mediaType.replace("image/", "");
-      const defaultFilename = `mattgpt-image-${index + 1}.${extension}`;
+      const defaultFilename = `figai-image-${index + 1}.${extension}`;
       const filename =
         image.filename && /^[a-z0-9][a-z0-9._-]{0,99}$/i.test(image.filename)
           ? image.filename
@@ -204,7 +204,7 @@ export class SlackScheduledTaskRunner implements ScheduledTaskRunner {
         channel_id: target.channel,
         ...(target.threadTs ? { thread_ts: target.threadTs } : {}),
         filename,
-        title: image.title?.slice(0, 100) || "MattGPT generated image",
+        title: image.title?.slice(0, 100) || "FigAi generated image",
         alt_text: image.altText,
         file: image.bytes,
       });

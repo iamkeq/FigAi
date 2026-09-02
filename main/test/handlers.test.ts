@@ -29,7 +29,7 @@ const config = parseConfig({
   OPENROUTER_API_KEY: "sk-or-v1-test",
   OWNER_USER_ID: "UOWNER",
   ALLOWED_CHANNEL_IDS: "C123",
-  MATTGPT_DATA_DIR: "/tmp/mattgpt-handler-test",
+  FIGAI_DATA_DIR: "/tmp/figai-handler-test",
 });
 
 function success(text = "done"): AgentResult {
@@ -651,8 +651,8 @@ describe("Socket Mode event handling", () => {
     expect(slack.uploads[0]).toMatchObject({
       channel_id: "C123",
       thread_ts: "100.001",
-      filename: "mattgpt-image-1.png",
-      title: "MattGPT generated image",
+      filename: "figai-image-1.png",
+      title: "FigAi generated image",
       alt_text: "Orange robot",
     });
     expect(slack.posts[0]?.text).toBe("Here it is.");
@@ -858,7 +858,7 @@ describe("Socket Mode event handling", () => {
       ],
     });
     const attachmentManager = new AttachmentManager("xoxb-test", async () => new Response(bytes));
-    const before = new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("mattgpt-")));
+    const before = new Set(readdirSync(tmpdir()).filter((name) => name.startsWith("figai-")));
     const setup = handlers({
       slack: slack.client,
       attachments: attachmentManager,
@@ -866,7 +866,7 @@ describe("Socket Mode event handling", () => {
     });
     await setup.value.handleEvent(event({ text: "inspect this" }));
     expect(
-      [...readdirSync(tmpdir())].filter((name) => name.startsWith("mattgpt-") && !before.has(name)),
+      [...readdirSync(tmpdir())].filter((name) => name.startsWith("figai-") && !before.has(name)),
     ).toHaveLength(0);
     expect(slack.posts.at(-1)?.text).toContain("internal error");
     expect(slack.statuses.at(-1)?.status).toBe("");

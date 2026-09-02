@@ -1,5 +1,5 @@
 [Unit]
-Description=MattGPT local Slack assistant
+Description=FigAi local Slack assistant
 After=network-online.target
 Wants=network-online.target
 
@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 ExecStart="__EXECUTABLE__"
 WorkingDirectory="__WORKING_DIRECTORY__"
-Environment="MATTGPT_ENV_PATH=__ENV_PATH__"
+Environment="FIGAI_ENV_PATH=__ENV_PATH__"
 Restart=on-failure
 RestartSec=2
 TimeoutStopSec=30

@@ -8,8 +8,10 @@ import type { DirectivePolicyCompiler } from "../src/db/directives.ts";
 import { MemoryRepository } from "../src/db/memories.ts";
 import { ReminderRepository } from "../src/db/reminders.ts";
 import { SkillRepository } from "../src/db/skills.ts";
+import { SshCommandRepository } from "../src/db/ssh.ts";
 import { WorkflowRepository } from "../src/db/workflows.ts";
 import type { MediaServiceClient } from "../src/media/client.ts";
+import type { SshClient } from "../src/ssh/client.ts";
 import { context, testDatabase } from "./helpers.ts";
 
 const open: ReturnType<typeof testDatabase>[] = [];
@@ -34,6 +36,7 @@ function executor(
       summary: instruction,
     }),
   },
+  ssh: SshClient | null = null,
 ): ToolExecutor {
   return new ToolExecutor(
     new MemoryRepository(db),
@@ -59,6 +62,8 @@ function executor(
     undefined,
     directivePolicyCompiler,
     new WorkflowRepository(db),
+    ssh,
+    new SshCommandRepository(db),
   );
 }
 
@@ -104,6 +109,9 @@ describe("model tools", () => {
       "propose_skill_revision",
       "resolve_skill_proposal",
       "set_skill_state",
+      "list_ssh_hosts",
+      "propose_ssh_command",
+      "resolve_ssh_command",
       "get_session_stats",
       "get_primary_model",
       "set_primary_model",
@@ -754,7 +762,7 @@ describe("model tools", () => {
       model: "primary/model",
     });
     expect(() => tools.execute("set_primary_model", '{"model":"vendor/new-model"}', other)).toThrow(
-      "Only the MattGPT owner",
+      "Only the FigAi owner",
     );
     expect(modelState.value).toBe("primary/model");
     expect(await tools.execute("set_primary_model", '{"model":"vendor/new-model"}', owner)).toEqual(
@@ -846,7 +854,7 @@ describe("model tools", () => {
       instructions: "Group changes by user impact and omit internal implementation trivia.",
     });
     expect(() => tools.execute("propose_skill", draftArguments, other)).toThrow(
-      "Only the MattGPT owner",
+      "Only the FigAi owner",
     );
     const proposal = tools.execute("propose_skill", draftArguments, owner) as {
       proposalId: number;
@@ -887,7 +895,7 @@ describe("model tools", () => {
         JSON.stringify({ id: confirmed.skill.id, state: "disabled" }),
         other,
       ),
-    ).toThrow("Only the MattGPT owner");
+    ).toThrow("Only the FigAi owner");
     tools.execute(
       "set_skill_state",
       JSON.stringify({ id: confirmed.skill.id, state: "disabled" }),
@@ -897,7 +905,166 @@ describe("model tools", () => {
       tools.execute("load_skill", JSON.stringify({ id: confirmed.skill.id }), owner),
     ).toThrow("unavailable");
     expect(() => tools.execute("list_skills", '{"include_disabled":true}', other)).toThrow(
-      "Only the MattGPT owner",
+      "Only the FigAi owner",
     );
+  });
+});
+
+describe("ssh commands", () => {
+  function fakeSsh(
+    aliases: string[],
+    run: (
+      alias: string,
+      command: string,
+    ) => Promise<{
+      exitCode: number | null;
+      timedOut: boolean;
+      stdout: string;
+      stderr: string;
+      stdoutTruncated: boolean;
+      stderrTruncated: boolean;
+    }>,
+  ): SshClient {
+    return { aliases: () => aliases, run } as unknown as SshClient;
+  }
+
+  test("is unavailable when no SSH hosts are configured", () => {
+    const db = testDatabase();
+    open.push(db);
+    const tools = executor(db);
+    const owner = context({ requesterId: "UOWNER", isOwner: true });
+    expect(() => tools.execute("list_ssh_hosts", "{}", owner)).toThrow("not configured");
+    expect(() =>
+      tools.execute(
+        "propose_ssh_command",
+        JSON.stringify({ host_alias: "nas", command: "uptime" }),
+        owner,
+      ),
+    ).toThrow("not configured");
+  });
+
+  test("restricts every SSH tool to the owner", () => {
+    const db = testDatabase();
+    open.push(db);
+    const ssh = fakeSsh(["nas"], async () => {
+      throw new Error("should not run");
+    });
+    const tools = executor(db, { value: "primary/model" }, null, null, undefined, ssh);
+    const other = context({ requesterId: "U999", isOwner: false });
+    expect(() => tools.execute("list_ssh_hosts", "{}", other)).toThrow("Only the FigAi owner");
+    expect(() =>
+      tools.execute(
+        "propose_ssh_command",
+        JSON.stringify({ host_alias: "nas", command: "uptime" }),
+        other,
+      ),
+    ).toThrow("Only the FigAi owner");
+    expect(() =>
+      tools.execute("resolve_ssh_command", JSON.stringify({ decision: "confirm" }), other),
+    ).toThrow("Only the FigAi owner");
+  });
+
+  test("lists configured aliases and rejects an unknown one", () => {
+    const db = testDatabase();
+    open.push(db);
+    const ssh = fakeSsh(["nas", "homelab"], async () => {
+      throw new Error("should not run");
+    });
+    const tools = executor(db, { value: "primary/model" }, null, null, undefined, ssh);
+    const owner = context({ requesterId: "UOWNER", isOwner: true });
+    expect(tools.execute("list_ssh_hosts", "{}", owner)).toEqual({ hosts: ["nas", "homelab"] });
+    expect(() =>
+      tools.execute(
+        "propose_ssh_command",
+        JSON.stringify({ host_alias: "unknown", command: "uptime" }),
+        owner,
+      ),
+    ).toThrow("No SSH host is configured");
+  });
+
+  test("requires a later same-thread confirmation before executing, then audits the run", async () => {
+    const db = testDatabase();
+    open.push(db);
+    const calls: Array<{ alias: string; command: string }> = [];
+    const ssh = fakeSsh(["nas"], async (alias, command) => {
+      calls.push({ alias, command });
+      return {
+        exitCode: 0,
+        timedOut: false,
+        stdout: "up 3 days\n",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+      };
+    });
+    const tools = executor(db, { value: "primary/model" }, null, null, undefined, ssh);
+    const owner = context({ requesterId: "UOWNER", isOwner: true, turnId: "Ev1" });
+    const draft = tools.execute(
+      "propose_ssh_command",
+      JSON.stringify({ host_alias: "nas", command: "uptime" }),
+      owner,
+    ) as { proposalId: number; hostAlias: string; command: string };
+    expect(draft).toMatchObject({
+      hostAlias: "nas",
+      command: "uptime",
+      requiresLaterConfirmation: true,
+    });
+    expect(calls).toHaveLength(0);
+
+    expect(() =>
+      tools.execute("resolve_ssh_command", JSON.stringify({ decision: "confirm" }), owner),
+    ).toThrow("later message");
+    expect(calls).toHaveLength(0);
+
+    const result = (await tools.execute(
+      "resolve_ssh_command",
+      JSON.stringify({ decision: "confirm" }),
+      { ...owner, turnId: "Ev2" },
+    )) as { confirmed: boolean; exitCode: number; stdout: string; untrusted: boolean };
+    expect(calls).toEqual([{ alias: "nas", command: "uptime" }]);
+    expect(result).toMatchObject({
+      confirmed: true,
+      hostAlias: "nas",
+      command: "uptime",
+      exitCode: 0,
+      timedOut: false,
+      stdout: "up 3 days\n",
+      untrusted: true,
+    });
+    expect(
+      db.raw.query("SELECT host_alias, command, exit_code, timed_out FROM ssh_command_audit").get(),
+    ).toEqual({ host_alias: "nas", command: "uptime", exit_code: 0, timed_out: 0 });
+    expect(() => db.raw.query("DELETE FROM ssh_command_audit").run()).toThrow("immutable");
+  });
+
+  test("cancelling a draft never runs it", () => {
+    const db = testDatabase();
+    open.push(db);
+    const calls: unknown[] = [];
+    const ssh = fakeSsh(["nas"], async (alias, command) => {
+      calls.push({ alias, command });
+      return {
+        exitCode: 0,
+        timedOut: false,
+        stdout: "",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+      };
+    });
+    const tools = executor(db, { value: "primary/model" }, null, null, undefined, ssh);
+    const owner = context({ requesterId: "UOWNER", isOwner: true, turnId: "Ev1" });
+    tools.execute(
+      "propose_ssh_command",
+      JSON.stringify({ host_alias: "nas", command: "rm -rf /data" }),
+      owner,
+    );
+    expect(
+      tools.execute("resolve_ssh_command", JSON.stringify({ decision: "cancel" }), {
+        ...owner,
+        turnId: "Ev2",
+      }),
+    ).toEqual({ confirmed: false, cancelled: true });
+    expect(calls).toHaveLength(0);
   });
 });

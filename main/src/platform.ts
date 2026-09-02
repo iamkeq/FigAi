@@ -6,7 +6,7 @@ export type SupportedPlatform = "darwin" | "linux";
 
 function supportedPlatform(platform: NodeJS.Platform = process.platform): SupportedPlatform {
   if (platform === "darwin" || platform === "linux") return platform;
-  throw new Error(`MattGPT does not support ${platform}. Use macOS or Linux.`);
+  throw new Error(`FigAi does not support ${platform}. Use macOS or Linux.`);
 }
 
 export function defaultConfigDir(
@@ -15,8 +15,8 @@ export function defaultConfigDir(
   home = homedir(),
 ): string {
   return supportedPlatform(platform) === "darwin"
-    ? join(home, "Library", "Application Support", "MattGPT")
-    : join(env.XDG_CONFIG_HOME || join(home, ".config"), "mattgpt");
+    ? join(home, "Library", "Application Support", "FigAi")
+    : join(env.XDG_CONFIG_HOME || join(home, ".config"), "figai");
 }
 
 export function defaultDataDir(
@@ -25,8 +25,8 @@ export function defaultDataDir(
   home = homedir(),
 ): string {
   return supportedPlatform(platform) === "darwin"
-    ? join(home, "Library", "Application Support", "MattGPT")
-    : join(env.XDG_DATA_HOME || join(home, ".local", "share"), "mattgpt");
+    ? join(home, "Library", "Application Support", "FigAi")
+    : join(env.XDG_DATA_HOME || join(home, ".local", "share"), "figai");
 }
 
 export function defaultEnvPath(
@@ -34,9 +34,9 @@ export function defaultEnvPath(
   platform: NodeJS.Platform = process.platform,
   home = homedir(),
 ): string {
-  const override = env.MATTGPT_ENV_PATH?.trim();
+  const override = env.FIGAI_ENV_PATH?.trim();
   if (override) {
-    if (!isAbsolute(override)) throw new Error("MATTGPT_ENV_PATH must be an absolute path.");
+    if (!isAbsolute(override)) throw new Error("FIGAI_ENV_PATH must be an absolute path.");
     return override;
   }
   return join(defaultConfigDir(env, platform, home), ".env");

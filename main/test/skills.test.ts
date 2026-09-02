@@ -85,6 +85,7 @@ describe("instruction skills", () => {
       { version: 14 },
       { version: 15 },
       { version: 16 },
+      { version: 17 },
     ]);
     expect(db.raw.query("SELECT text FROM memories").get()).toEqual({ text: "keep me" });
     const seeded = new SkillRepository(db).catalog();
@@ -99,7 +100,7 @@ describe("instruction skills", () => {
     );
     expect(
       db.raw.query("SELECT action, actor_user_id, enabled_snapshot FROM skill_audit").get(),
-    ).toEqual({ action: "created", actor_user_id: "system:mattgpt", enabled_snapshot: 1 });
+    ).toEqual({ action: "created", actor_user_id: "system:figai", enabled_snapshot: 1 });
   });
 
   test("teaches an untouched legacy Brain Librarian about reference conventions", () => {
@@ -126,7 +127,7 @@ describe("instruction skills", () => {
       db.raw
         .query("SELECT action, version, actor_user_id FROM skill_audit ORDER BY id DESC LIMIT 1")
         .get(),
-    ).toEqual({ action: "updated", version: 2, actor_user_id: "system:mattgpt" });
+    ).toEqual({ action: "updated", version: 2, actor_user_id: "system:figai" });
   });
 
   test("does not overwrite customized Brain Librarian instructions", () => {
@@ -191,7 +192,7 @@ describe("instruction skills", () => {
     ).toEqual({ enabled: 0 });
     expect(
       db.raw
-        .query("SELECT enabled_snapshot FROM skill_audit WHERE actor_user_id = 'system:mattgpt'")
+        .query("SELECT enabled_snapshot FROM skill_audit WHERE actor_user_id = 'system:figai'")
         .get(),
     ).toEqual({ enabled_snapshot: 0 });
   });
