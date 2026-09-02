@@ -30,14 +30,16 @@ import { SlackProfileService } from "./slack/profiles.ts";
 import { SshClient } from "./ssh/client.ts";
 import type { SlackFile } from "./types.ts";
 import { SafeUrlReader } from "./web/url-reader.ts";
+import { WebUiServer } from "./webui/server.ts";
 import { WorkflowEngine } from "./workflows/engine.ts";
 import { WorkflowScheduler } from "./workflows/scheduler.ts";
 
-export class MattGptApp {
+export class FigAiApp {
   private readonly bolt: App;
   private readonly db: MattDatabase;
   private scheduler: ReminderScheduler | null = null;
   private workflowScheduler: WorkflowScheduler | null = null;
+  private webUi: WebUiServer | null = null;
   private maintenance: ReturnType<typeof setInterval> | null = null;
   private stopping = false;
 
@@ -165,6 +167,23 @@ export class MattGptApp {
     this.registerHandlers(handlers);
     await backups.createIfDue();
     await this.bolt.start();
+    if (this.config.webUiPort) {
+      this.webUi = new WebUiServer(
+        this.config.webUiPort,
+        agent,
+        memories,
+        skills,
+        provider,
+        this.db,
+        this.config.primaryModel,
+        this.config.ownerUserId,
+        auth.team_id,
+        this.config.defaultTimezone,
+        preferences,
+        directives,
+      );
+      this.webUi.start();
+    }
     this.scheduler = new ReminderScheduler(
       reminders,
       slack,
@@ -211,6 +230,7 @@ export class MattGptApp {
     this.stopping = true;
     await this.scheduler?.stop();
     await this.workflowScheduler?.stop();
+    await this.webUi?.stop();
     if (this.maintenance) clearInterval(this.maintenance);
     await this.bolt.stop();
     this.db.close();

@@ -1,9 +1,9 @@
-import { MattGptApp } from "./app.ts";
+import { FigAiApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { errorMessage, log } from "./logger.ts";
 
 async function main(): Promise<void> {
-  const app = new MattGptApp(loadConfig());
+  const app = new FigAiApp(loadConfig());
   const shutdown = async (signal: string) => {
     log("info", "shutdown_requested", { signal });
     await app.stop();
