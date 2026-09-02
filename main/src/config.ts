@@ -96,6 +96,7 @@ const schema = z
     DEFAULT_TIMEZONE: z.string().min(1).default("America/New_York"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     FIGAI_DATA_DIR: z.string().optional(),
+    WEB_UI_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   })
   .superRefine((value, context) => {
     for (const [service, url, key] of [
@@ -133,6 +134,7 @@ export interface AppConfig {
   brainVaultPath: string | null;
   mediaConnections: MediaConnections;
   sshHosts: ReadonlyMap<string, SshHostConnection>;
+  webUiPort: number | null;
   defaultTimezone: string;
   logLevel: "debug" | "info" | "warn" | "error";
   dataDir: string;
@@ -176,6 +178,7 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
         { host: entry.host, user: entry.user, port: entry.port, keyPath: entry.keyPath ?? null },
       ]),
     ),
+    webUiPort: result.data.WEB_UI_PORT ?? null,
     defaultTimezone: result.data.DEFAULT_TIMEZONE,
     logLevel: result.data.LOG_LEVEL,
     dataDir,
