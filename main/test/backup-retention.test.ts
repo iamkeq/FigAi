@@ -20,9 +20,9 @@ afterEach(() => {
 
 describe("retention and backups", () => {
   test("retains only seven daily SQLite backups", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mattgpt-backup-test-"));
+    const directory = mkdtempSync(join(tmpdir(), "figai-backup-test-"));
     directories.push(directory);
-    const db = new MattDatabase(join(directory, "mattgpt.sqlite"));
+    const db = new MattDatabase(join(directory, "figai.sqlite"));
     db.migrate();
     const skills = new SkillRepository(db);
     const draft = skills.propose({

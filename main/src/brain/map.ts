@@ -516,7 +516,7 @@ export function renderBrainMapSvg(graphs: BrainGraph[]): string {
   });
   const totalNodes = selected.reduce((sum, graph) => sum + graph.nodes.length, 0);
   const totalEdges = selected.reduce((sum, graph) => sum + graph.edges.length, 0);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#12141a" /><text x="28" y="42" fill="#f4f6fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="600">MattGPT Brain map</text><text x="1572" y="42" text-anchor="end" fill="#aab0be" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16">${selected.length} Brain${selected.length === 1 ? "" : "s"} · ${totalNodes} notes · ${totalEdges} relationships</text>${panels.join("")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#12141a" /><text x="28" y="42" fill="#f4f6fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="26" font-weight="600">FigAi Brain map</text><text x="1572" y="42" text-anchor="end" fill="#aab0be" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="16">${selected.length} Brain${selected.length === 1 ? "" : "s"} · ${totalNodes} notes · ${totalEdges} relationships</text>${panels.join("")}</svg>`;
 }
 
 function isPng(bytes: Buffer): boolean {
@@ -537,7 +537,7 @@ export class SystemBrainMapRenderer implements BrainMapRenderer {
   constructor(
     private readonly command: MapCommand = defaultCommand,
     private readonly createTemporaryDirectory: () => string = () =>
-      mkdtempSync(join(tmpdir(), "mattgpt-brain-map-")),
+      mkdtempSync(join(tmpdir(), "figai-brain-map-")),
     private readonly rasterizer?: MapRasterizer,
   ) {}
 

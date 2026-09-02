@@ -82,7 +82,7 @@ function command(root: string, args: string[]): string {
 
 function opaqueScopeKey(workspaceId: string, kind: "user" | "channel", id: string): string {
   return createHash("sha256")
-    .update(`mattgpt-brain\0${workspaceId}\0${kind}\0${id}`)
+    .update(`figai-brain\0${workspaceId}\0${kind}\0${id}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -90,7 +90,7 @@ function opaqueScopeKey(workspaceId: string, kind: "user" | "channel", id: strin
 function scopedContract(): string {
   return `# Scoped Brain Operating Contract
 
-This vault is an isolated MattGPT Brain scope.
+This vault is an isolated FigAi Brain scope.
 
 - Sources are immutable evidence.
 - Wiki notes are maintained knowledge.
@@ -127,9 +127,9 @@ function initializeScopedVault(root: string, templateRoot: string): void {
       command(root, [
         git,
         "-c",
-        "user.name=MattGPT",
+        "user.name=FigAi",
         "-c",
-        "user.email=mattgpt@local",
+        "user.email=figai@local",
         "commit",
         "-q",
         "-m",
@@ -139,7 +139,7 @@ function initializeScopedVault(root: string, templateRoot: string): void {
     return;
   }
 
-  const temporary = join(dirname(root), `.mattgpt-init-${randomUUID()}`);
+  const temporary = join(dirname(root), `.figai-init-${randomUUID()}`);
   try {
     mkdirSync(temporary, { mode: 0o700 });
     chmodSync(temporary, 0o700);
@@ -182,7 +182,7 @@ function initializeScopedVault(root: string, templateRoot: string): void {
     writeFileSync(join(temporary, "AGENTS.md"), scopedContract(), { mode: 0o600 });
     writeFileSync(
       join(temporary, "Home.md"),
-      "# Brain\n\nThis is an isolated MattGPT Brain scope.\n\n- [[maps/knowledge-map|Knowledge map]]\n",
+      "# Brain\n\nThis is an isolated FigAi Brain scope.\n\n- [[maps/knowledge-map|Knowledge map]]\n",
       { mode: 0o600 },
     );
     writeFileSync(
@@ -206,9 +206,9 @@ function initializeScopedVault(root: string, templateRoot: string): void {
     command(temporary, [
       git,
       "-c",
-      "user.name=MattGPT",
+      "user.name=FigAi",
       "-c",
-      "user.email=mattgpt@local",
+      "user.email=figai@local",
       "commit",
       "-q",
       "-m",

@@ -417,7 +417,7 @@ function markdownSummary(text: string): string {
 }
 
 function atomicWrite(path: string, content: string): void {
-  const temporary = join(dirname(path), `.mattgpt-${randomUUID()}.tmp`);
+  const temporary = join(dirname(path), `.figai-${randomUUID()}.tmp`);
   try {
     writeFileSync(temporary, content, { mode: 0o600 });
     renameSync(temporary, path);
@@ -578,7 +578,7 @@ export class BrainVault implements BrainRepository, BrainMapProvider {
     const permitted =
       (allowHome && requested === "Home.md") ||
       allowedDirectories.some((directory) => requested.startsWith(`${directory}/`));
-    if (!permitted) throw new Error("That Brain area is not available to MattGPT.");
+    if (!permitted) throw new Error("That Brain area is not available to FigAi.");
     const unresolved = join(this.root, requested);
     if (!existsSync(unresolved)) throw new Error("Brain note not found.");
     const absolute = realpathSync(unresolved);

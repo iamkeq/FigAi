@@ -20,15 +20,15 @@ function nativeAlias(): TargetAlias {
   return `${process.platform}-${process.arch}`;
 }
 
-const requested = process.argv[2] || process.env.MATTGPT_BUILD_TARGET || nativeAlias();
+const requested = process.argv[2] || process.env.FIGAI_BUILD_TARGET || nativeAlias();
 if (!(requested in targetAliases)) {
   throw new Error(
-    `Unknown MattGPT build target: ${requested}. Expected ${Object.keys(targetAliases).join(", ")}.`,
+    `Unknown FigAi build target: ${requested}. Expected ${Object.keys(targetAliases).join(", ")}.`,
   );
 }
 
 const alias = requested as TargetAlias;
-const output = resolve(process.env.MATTGPT_BUILD_OUTPUT || "dist/mattgpt");
+const output = resolve(process.env.FIGAI_BUILD_OUTPUT || "dist/figai");
 mkdirSync(dirname(output), { recursive: true });
 
 const result = Bun.spawnSync({

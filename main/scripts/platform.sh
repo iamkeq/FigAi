@@ -2,38 +2,38 @@
 
 set -euo pipefail
 
-APP_ID="com.matgra.mattgpt"
-SERVICE_NAME="mattgpt.service"
+APP_ID="com.matgra.figai"
+SERVICE_NAME="figai.service"
 PLATFORM_NAME="$(uname -s)"
 
 case "$PLATFORM_NAME" in
   Darwin)
-    MATTGPT_PLATFORM="darwin"
-    DATA_DIR="$HOME/Library/Application Support/MattGPT"
+    FIGAI_PLATFORM="darwin"
+    DATA_DIR="$HOME/Library/Application Support/FigAi"
     CONFIG_DIR="$DATA_DIR"
-    LOG_DIR="$HOME/Library/Logs/MattGPT"
+    LOG_DIR="$HOME/Library/Logs/FigAi"
     SERVICE_PATH="$HOME/Library/LaunchAgents/$APP_ID.plist"
     ;;
   Linux)
-    MATTGPT_PLATFORM="linux"
-    DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/mattgpt"
-    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mattgpt"
-    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mattgpt"
+    FIGAI_PLATFORM="linux"
+    DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/figai"
+    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/figai"
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/figai"
     LOG_DIR="$STATE_DIR"
     SERVICE_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/$SERVICE_NAME"
     ;;
   *)
-    printf 'MattGPT supports macOS and Linux; found %s.\n' "$PLATFORM_NAME" >&2
+    printf 'FigAi supports macOS and Linux; found %s.\n' "$PLATFORM_NAME" >&2
     exit 1
     ;;
 esac
 
 BIN_DIR="$DATA_DIR/bin"
 ENV_PATH="$CONFIG_DIR/.env"
-EXECUTABLE="$BIN_DIR/mattgpt"
+EXECUTABLE="$BIN_DIR/figai"
 
 file_mode() {
-  if [[ "$MATTGPT_PLATFORM" == "darwin" ]]; then
+  if [[ "$FIGAI_PLATFORM" == "darwin" ]]; then
     stat -f '%Lp' "$1"
   else
     stat -c '%a' "$1"

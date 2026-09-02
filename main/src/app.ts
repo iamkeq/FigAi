@@ -14,6 +14,7 @@ import { MemoryRepository } from "./db/memories.ts";
 import { UserPreferenceRepository } from "./db/preferences.ts";
 import { ReminderRepository } from "./db/reminders.ts";
 import { SkillRepository } from "./db/skills.ts";
+import { SshCommandRepository } from "./db/ssh.ts";
 import { WorkflowRepository } from "./db/workflows.ts";
 import { AttachmentManager } from "./files.ts";
 import { errorMessage, log } from "./logger.ts";
@@ -26,6 +27,7 @@ import type { SlackClient } from "./slack/client.ts";
 import { SlashCommands } from "./slack/commands.ts";
 import { type SlackEventInput, SlackHandlers } from "./slack/handlers.ts";
 import { SlackProfileService } from "./slack/profiles.ts";
+import { SshClient } from "./ssh/client.ts";
 import type { SlackFile } from "./types.ts";
 import { SafeUrlReader } from "./web/url-reader.ts";
 import { WorkflowEngine } from "./workflows/engine.ts";
@@ -73,7 +75,7 @@ export class MattGptApp {
         ok?: boolean;
         channel?: { name?: string };
       };
-      if (!result.ok) throw new Error(`MattGPT cannot access approved channel ${channel}.`);
+      if (!result.ok) throw new Error(`FigAi cannot access approved channel ${channel}.`);
       channelLabels.set(channel, result.channel?.name?.trim() || "Channel");
     }
 
@@ -83,6 +85,8 @@ export class MattGptApp {
     const reminders = new ReminderRepository(this.db);
     const skills = new SkillRepository(this.db);
     const workflows = new WorkflowRepository(this.db);
+    const sshCommands = new SshCommandRepository(this.db);
+    const ssh = this.config.sshHosts.size > 0 ? new SshClient(this.config.sshHosts) : null;
     const actions = new ActionJournalRepository(this.db);
     const backups = new BackupManager(this.db, this.config.backupDir);
     const authorizer = new SlackAuthorizer(slack, this.config, auth.team_id);
@@ -117,6 +121,8 @@ export class MattGptApp {
       directives,
       provider,
       workflows,
+      ssh,
+      sshCommands,
     );
     const agent = new Agent(
       provider,
@@ -184,15 +190,20 @@ export class MattGptApp {
       try {
         const removed = this.db.prune();
         const expiredSkillProposals = skills.pruneExpiredProposals();
+        const expiredSshProposals = sshCommands.pruneExpiredProposals();
         void backups
           .createIfDue()
           .catch((error) => log("error", "backup_failed", { error: errorMessage(error) }));
-        log("info", "maintenance_complete", { ...removed, expiredSkillProposals });
+        log("info", "maintenance_complete", {
+          ...removed,
+          expiredSkillProposals,
+          expiredSshProposals,
+        });
       } catch (error) {
         log("error", "maintenance_failed", { error: errorMessage(error) });
       }
     }, 3_600_000);
-    log("info", "mattgpt_started", { workspaceId: auth.team_id, botUserId: auth.user_id });
+    log("info", "figai_started", { workspaceId: auth.team_id, botUserId: auth.user_id });
   }
 
   async stop(): Promise<void> {
@@ -203,7 +214,7 @@ export class MattGptApp {
     if (this.maintenance) clearInterval(this.maintenance);
     await this.bolt.stop();
     this.db.close();
-    log("info", "mattgpt_stopped");
+    log("info", "figai_stopped");
   }
 
   private registerHandlers(handlers: SlackHandlers): void {
@@ -232,7 +243,7 @@ export class MattGptApp {
         ),
       );
     });
-    this.bolt.command("/mattgpt", async ({ ack, command, respond }) => {
+    this.bolt.command("/figai", async ({ ack, command, respond }) => {
       await ack();
       const text = await handlers.handleSlash({
         workspaceId: command.team_id,

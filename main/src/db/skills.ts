@@ -120,7 +120,7 @@ export class SkillRepository {
       .get(name, target?.id ?? -1);
     if (conflicting) throw new Error("An active skill already uses that name.");
     if (!target && this.activeCount() >= MAX_ACTIVE_SKILLS) {
-      throw new Error(`MattGPT already has ${MAX_ACTIVE_SKILLS} active skills.`);
+      throw new Error(`FigAi already has ${MAX_ACTIVE_SKILLS} active skills.`);
     }
     const now = input.now ?? Date.now();
     const create = this.db.raw.transaction(() => {
@@ -200,7 +200,7 @@ export class SkillRepository {
       let skill: SkillRecord;
       if (proposal.operation === "create") {
         if (this.activeCount() >= MAX_ACTIVE_SKILLS) {
-          throw new Error(`MattGPT already has ${MAX_ACTIVE_SKILLS} active skills.`);
+          throw new Error(`FigAi already has ${MAX_ACTIVE_SKILLS} active skills.`);
         }
         const result = this.db.raw
           .query(`
@@ -283,7 +283,7 @@ export class SkillRepository {
     if (input.state === "disabled" && skill.enabled === 0)
       return { changed: false, state: input.state };
     if (input.state === "enabled" && this.activeCount() >= MAX_ACTIVE_SKILLS) {
-      throw new Error(`MattGPT already has ${MAX_ACTIVE_SKILLS} active skills.`);
+      throw new Error(`FigAi already has ${MAX_ACTIVE_SKILLS} active skills.`);
     }
     const change = this.db.raw.transaction(() => {
       if (input.state === "deleted") {

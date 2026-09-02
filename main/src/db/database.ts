@@ -143,7 +143,7 @@ export class MattDatabase {
 
     return {
       scope: "current_slack_thread",
-      note: "Provider-reported usage for completed successful MattGPT turns. The current in-progress request is not included.",
+      note: "Provider-reported usage for completed successful FigAi turns. The current in-progress request is not included.",
       totals: {
         completedTurns: totals?.completed_turns ?? 0,
         promptTokens: totals?.prompt_tokens ?? 0,

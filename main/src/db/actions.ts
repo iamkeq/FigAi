@@ -61,7 +61,7 @@ const SUCCESS_SUMMARIES: Readonly<Record<string, string>> = {
   list_workflows: "Listed active durable workflows",
   cancel_workflow: "Cancelled a durable workflow",
   get_recent_actions: "Inspected recent tool activity",
-  get_status: "Checked MattGPT service status",
+  get_status: "Checked FigAi service status",
   list_skills: "Listed instruction skills",
   load_skill: "Loaded an instruction skill",
   propose_skill: "Created an instruction-skill draft",
@@ -72,6 +72,8 @@ const SUCCESS_SUMMARIES: Readonly<Record<string, string>> = {
   get_primary_model: "Inspected the primary model",
   set_primary_model: "Changed the primary model",
   reset_primary_model: "Reset the primary model",
+  list_ssh_hosts: "Listed configured SSH host aliases",
+  propose_ssh_command: "Drafted an SSH command for later confirmation",
 };
 
 const KNOWN_TOOL_NAMES = new Set([
@@ -81,6 +83,7 @@ const KNOWN_TOOL_NAMES = new Set([
   "cancel_reminder",
   "create_workflow",
   "cancel_workflow",
+  "resolve_ssh_command",
 ]);
 
 function safeToolName(toolName: string): string {
@@ -192,6 +195,23 @@ function descriptionFor(toolName: string, toolResult: unknown): ActionDescriptio
 
   if (toolName === "add_media" && result.added !== true) {
     return { outcome: "no_change", summary: "A media addition request made no change" };
+  }
+
+  if (toolName === "resolve_ssh_command") {
+    if (result.cancelled === true) {
+      return { outcome: "no_change", summary: "Cancelled a drafted SSH command" };
+    }
+    if (result.confirmed !== true) {
+      return { outcome: "failed", summary: "SSH command confirmation failed" };
+    }
+    if (result.timedOut === true) {
+      return { outcome: "failed", summary: "An SSH command timed out" };
+    }
+    const exitCode = integer(result.exitCode);
+    if (exitCode !== undefined && exitCode !== 0) {
+      return { outcome: "failed", summary: `An SSH command exited with status ${exitCode}` };
+    }
+    return { outcome: "succeeded", summary: "Ran an SSH command on a configured host" };
   }
 
   if (toolName === "manage_sonarr_episodes") {

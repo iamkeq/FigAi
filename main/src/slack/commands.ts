@@ -3,7 +3,7 @@ import { MODEL_ID, type ModelControl, PRIMARY_MODEL_SETTING } from "../models.ts
 import type { RuntimeContext } from "../types.ts";
 
 const SKILLS = [
-  "*MattGPT capabilities*",
+  "*FigAi capabilities*",
   "Message me naturally to:",
   "• Ask questions or research the web",
   "• Read a specific public webpage without running its JavaScript",
@@ -22,9 +22,9 @@ const SKILLS = [
   "• Use owner-created instruction skills when relevant",
   "",
   "Emergency model controls:",
-  "• `/mattgpt model`",
-  "• `/mattgpt model provider/model`",
-  "• `/mattgpt model reset`",
+  "• `/figai model`",
+  "• `/figai model provider/model`",
+  "• `/figai model reset`",
 ];
 
 export class SlashCommands {
@@ -40,7 +40,7 @@ export class SlashCommands {
     if (command.toLowerCase() !== "model") return SKILLS.join("\n");
     if (!argument) return `Primary model: \`${this.models.getPrimaryModel()}\``;
     if (context.requesterId !== this.ownerUserId) {
-      return "Only the MattGPT owner can change the model.";
+      return "Only the FigAi owner can change the model.";
     }
     if (argument.toLowerCase() === "reset") {
       this.db.deleteSetting(PRIMARY_MODEL_SETTING);
@@ -48,7 +48,7 @@ export class SlashCommands {
       return `Primary model reset to \`${this.defaultPrimaryModel}\`.`;
     }
     if (argument.length > 200 || !MODEL_ID.test(argument)) {
-      return "Usage: `/mattgpt model provider/model` or `/mattgpt model reset`";
+      return "Usage: `/figai model provider/model` or `/figai model reset`";
     }
     const resolved = await this.models.resolveModel(argument);
     if (!resolved) return "OpenRouter does not currently list that model; nothing was changed.";

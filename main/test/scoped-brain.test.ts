@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 function ownerVault(): string {
-  const root = mkdtempSync(join(tmpdir(), "mattgpt-owner-brain-"));
+  const root = mkdtempSync(join(tmpdir(), "figai-owner-brain-"));
   roots.push(root);
   for (const path of [
     ".obsidian",
@@ -90,7 +90,7 @@ function channel(channelId: string, userId: string): RuntimeContext {
 
 function repository(mapRenderer?: BrainMapRenderer) {
   const owner = ownerVault();
-  const scopes = mkdtempSync(join(tmpdir(), "mattgpt-scoped-brains-"));
+  const scopes = mkdtempSync(join(tmpdir(), "figai-scoped-brains-"));
   roots.push(scopes);
   return {
     owner,
@@ -423,7 +423,7 @@ describe("scoped Brains", () => {
     const key = readdirSync(join(scopes, "users"))[0];
     expect(key).toBeDefined();
     const root = join(scopes, "users", key ?? "");
-    expect(readFileSync(join(root, "Home.md"), "utf8")).toContain("isolated MattGPT Brain");
+    expect(readFileSync(join(root, "Home.md"), "utf8")).toContain("isolated FigAi Brain");
     expect(readFileSync(join(root, "Home.md"), "utf8")).not.toContain("Owner-only legacy");
     expect(existsSync(join(root, "wiki/lists"))).toBe(true);
     expect(existsSync(join(root, "wiki/areas"))).toBe(true);

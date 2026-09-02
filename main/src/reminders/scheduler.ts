@@ -148,7 +148,7 @@ export class ReminderScheduler {
     if (claim.state !== "started") {
       const reason =
         claim.state === "running"
-          ? "MattGPT restarted while this scheduled task was running, so it was not replayed."
+          ? "FigAi restarted while this scheduled task was running, so it was not replayed."
           : "This scheduled task could not be safely resumed.";
       this.reminders.markAgentRunFailed(
         task,

@@ -319,7 +319,7 @@ describe("OpenRouter adapter and agent loop", () => {
       return completion(
         {
           content:
-            "MattGPT is reading the spreadsheet request\nMattGPT is checking the spreadsheet totals\nMattGPT is thinking through the corrections\nMattGPT is writing the corrected workbook\nMattGPT is finishing the spreadsheet",
+            "FigAi is reading the spreadsheet request\nFigAi is checking the spreadsheet totals\nFigAi is thinking through the corrections\nFigAi is writing the corrected workbook\nFigAi is finishing the spreadsheet",
         },
         "loading/model",
       );
@@ -1486,7 +1486,7 @@ describe("OpenRouter adapter and agent loop", () => {
     });
     const executor = {
       execute: () => {
-        throw new Error("sonarr returned more than MattGPT's 2 MB response limit.");
+        throw new Error("sonarr returned more than FigAi's 2 MB response limit.");
       },
     } as unknown as ToolExecutor;
     const result = await new Agent(client, executor).run({
@@ -1494,7 +1494,7 @@ describe("OpenRouter adapter and agent loop", () => {
       context: context({ isOwner: true }),
     });
     expect(result.text).toBe(
-      "The addition was not confirmed: sonarr returned more than MattGPT's 2 MB response limit. I’m treating it as not added.",
+      "The addition was not confirmed: sonarr returned more than FigAi's 2 MB response limit. I’m treating it as not added.",
     );
     expect(result.text).not.toContain("request was sent");
     expect(result.writeReceipts).toEqual([]);

@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 function fixtureVault(): string {
-  const root = mkdtempSync(join(tmpdir(), "mattgpt-map-vault-"));
+  const root = mkdtempSync(join(tmpdir(), "figai-map-vault-"));
   roots.push(root);
   mkdirSync(join(root, "wiki/projects"), { recursive: true });
   mkdirSync(join(root, "wiki/people"), { recursive: true });
@@ -41,7 +41,7 @@ function fixtureVault(): string {
 }
 
 function categoryVault(): string {
-  const root = mkdtempSync(join(tmpdir(), "mattgpt-map-categories-"));
+  const root = mkdtempSync(join(tmpdir(), "figai-map-categories-"));
   roots.push(root);
   mkdirSync(join(root, "wiki/projects/WoW/characters"), { recursive: true });
   mkdirSync(join(root, "wiki/projects/WoW/planning"), { recursive: true });
@@ -134,7 +134,7 @@ describe("Brain map export", () => {
   });
 
   test("renders through a private temporary directory and cleans it after success", () => {
-    const parent = mkdtempSync(join(tmpdir(), "mattgpt-map-render-parent-"));
+    const parent = mkdtempSync(join(tmpdir(), "figai-map-render-parent-"));
     roots.push(parent);
     const temporary = join(parent, "render");
     const renderer = new SystemBrainMapRenderer(
@@ -146,7 +146,7 @@ describe("Brain map export", () => {
         expect(outputPath).toBe(join(temporary, "brain-map.png"));
         expect(statSync(temporary).mode & 0o777).toBe(0o700);
         expect(statSync(String(svgPath)).mode & 0o777).toBe(0o600);
-        expect(readFileSync(String(svgPath), "utf8")).toContain("MattGPT Brain map");
+        expect(readFileSync(String(svgPath), "utf8")).toContain("FigAi Brain map");
         writeFileSync(String(outputPath), png);
         return { exitCode: 0, stdout: "", stderr: "" };
       },
@@ -172,7 +172,7 @@ describe("Brain map export", () => {
   });
 
   test("cleans the temporary directory when the renderer fails", () => {
-    const parent = mkdtempSync(join(tmpdir(), "mattgpt-map-failure-parent-"));
+    const parent = mkdtempSync(join(tmpdir(), "figai-map-failure-parent-"));
     roots.push(parent);
     const temporary = join(parent, "render");
     const renderer = new SystemBrainMapRenderer(

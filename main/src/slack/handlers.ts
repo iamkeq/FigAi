@@ -120,7 +120,7 @@ export class SlackHandlers {
         await this.slack.chat.postMessage({
           channel: event.channelId,
           thread_ts: event.threadTs ?? event.ts,
-          text: "MattGPT is limited to internal members of an approved channel.",
+          text: "FigAi is limited to internal members of an approved channel.",
         });
       }
       return;
@@ -251,14 +251,14 @@ export class SlackHandlers {
 
   async handleSlash(input: SlashInput): Promise<string> {
     if (input.workspaceId !== this.workspaceId())
-      return "This MattGPT installation belongs to another workspace.";
+      return "This FigAi installation belongs to another workspace.";
     const surface = input.channelId.startsWith("D") ? "dm" : "channel";
     const authorization = await this.authorizer.authorize({
       userId: input.userId,
       channelId: input.channelId,
       surface,
     });
-    if (!authorization.allowed) return "You are not authorized to use MattGPT here.";
+    if (!authorization.allowed) return "You are not authorized to use FigAi here.";
     const context: RuntimeContext = {
       workspaceId: input.workspaceId,
       botUserId: this.botUserId,
@@ -427,7 +427,7 @@ export class SlackHandlers {
         for (const [index, image] of result.images.entries()) {
           const extension =
             image.mediaType === "image/jpeg" ? "jpg" : image.mediaType.replace("image/", "");
-          const defaultFilename = `mattgpt-image-${index + 1}.${extension}`;
+          const defaultFilename = `figai-image-${index + 1}.${extension}`;
           const filename =
             image.filename && /^[a-z0-9][a-z0-9._-]{0,99}$/i.test(image.filename)
               ? image.filename
@@ -436,7 +436,7 @@ export class SlackHandlers {
             channel_id: event.channelId,
             thread_ts: context.threadTs,
             filename,
-            title: image.title?.slice(0, 100) || "MattGPT generated image",
+            title: image.title?.slice(0, 100) || "FigAi generated image",
             alt_text: image.altText,
             file: image.bytes,
           });

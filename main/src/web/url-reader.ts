@@ -164,14 +164,14 @@ const defaultTransport: UrlTransport = (url, address) =>
         headers: {
           Accept: "text/html, text/plain, text/markdown, application/json, application/xml;q=0.9",
           "Accept-Encoding": "identity",
-          "User-Agent": "MattGPT/0.1 (+local URL reader)",
+          "User-Agent": "FigAi/0.1 (+local URL reader)",
         },
         lookup: createPinnedLookup(address),
       },
       (response) => {
         const declared = Number(headerValue(response.headers["content-length"]));
         if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
-          response.destroy(new Error("The page exceeds MattGPT's 2 MB download limit."));
+          response.destroy(new Error("The page exceeds FigAi's 2 MB download limit."));
           return;
         }
         const chunks: Buffer[] = [];
@@ -179,7 +179,7 @@ const defaultTransport: UrlTransport = (url, address) =>
         response.on("data", (chunk: Buffer) => {
           total += chunk.byteLength;
           if (total > MAX_RESPONSE_BYTES) {
-            response.destroy(new Error("The page exceeds MattGPT's 2 MB download limit."));
+            response.destroy(new Error("The page exceeds FigAi's 2 MB download limit."));
             return;
           }
           chunks.push(Buffer.from(chunk));

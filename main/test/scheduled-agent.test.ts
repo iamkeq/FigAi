@@ -28,7 +28,7 @@ const config = parseConfig({
   OPENROUTER_API_KEY: "sk-or-v1-test",
   OWNER_USER_ID: "UOWNER",
   ALLOWED_CHANNEL_IDS: "C123",
-  MATTGPT_DATA_DIR: "/tmp/mattgpt-scheduled-agent-test",
+  FIGAI_DATA_DIR: "/tmp/figai-scheduled-agent-test",
 });
 
 function result(text = "Two priorities"): AgentResult {

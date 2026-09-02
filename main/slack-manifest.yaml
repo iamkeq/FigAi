@@ -1,14 +1,14 @@
 display_information:
-  name: MattGPT
+  name: FigAi
   description: A private, local Slack assistant
   background_color: "#202124"
 features:
   bot_user:
-    display_name: MattGPT
+    display_name: FigAi
     always_online: false
   slash_commands:
-    - command: /mattgpt
-      description: Show MattGPT's available skills
+    - command: /figai
+      description: Show FigAi's available skills
       usage_hint: show skills | model [provider/model | reset]
       should_escape: false
 oauth_config:

@@ -246,7 +246,7 @@ export const migrations: readonly Migration[] = [
           ) < 25 THEN 1
           ELSE 0
         END,
-        'system:mattgpt',
+        'system:figai',
         CAST(strftime('%s', 'now') AS INTEGER) * 1000,
         CAST(strftime('%s', 'now') AS INTEGER) * 1000
       WHERE NOT EXISTS (
@@ -269,7 +269,7 @@ export const migrations: readonly Migration[] = [
         id,
         NULL,
         'created',
-        'system:mattgpt',
+        'system:figai',
         version,
         name,
         description,
@@ -278,7 +278,7 @@ export const migrations: readonly Migration[] = [
         created_at
       FROM skills
       WHERE lower(name) = lower(${sqlString(BRAIN_LIBRARIAN_SKILL.name)})
-        AND creator_user_id = 'system:mattgpt'
+        AND creator_user_id = 'system:figai'
         AND changes() = 1
       ORDER BY id DESC
       LIMIT 1;
@@ -314,7 +314,7 @@ export const migrations: readonly Migration[] = [
           version = 2,
           updated_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000
       WHERE lower(name) = lower(${sqlString(BRAIN_LIBRARIAN_SKILL.name)})
-        AND creator_user_id = 'system:mattgpt'
+        AND creator_user_id = 'system:figai'
         AND deleted_at IS NULL
         AND version = 1
         AND instructions = ${sqlString(BRAIN_LIBRARIAN_V1_INSTRUCTIONS)};
@@ -335,7 +335,7 @@ export const migrations: readonly Migration[] = [
         id,
         NULL,
         'updated',
-        'system:mattgpt',
+        'system:figai',
         version,
         name,
         description,
@@ -344,7 +344,7 @@ export const migrations: readonly Migration[] = [
         updated_at
       FROM skills
       WHERE lower(name) = lower(${sqlString(BRAIN_LIBRARIAN_SKILL.name)})
-        AND creator_user_id = 'system:mattgpt'
+        AND creator_user_id = 'system:figai'
         AND deleted_at IS NULL
         AND version = 2
         AND instructions = ${sqlString(BRAIN_LIBRARIAN_SKILL.instructions)}
@@ -532,6 +532,53 @@ export const migrations: readonly Migration[] = [
       SET deleted_at = COALESCE(finished_at, updated_at),
           finished_reason = status
       WHERE status IN ('completed', 'cancelled', 'expired', 'failed');
+    `,
+  },
+  {
+    version: 17,
+    sql: `
+      CREATE TABLE ssh_command_proposals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        host_alias TEXT NOT NULL CHECK (length(host_alias) BETWEEN 1 AND 32),
+        command TEXT NOT NULL CHECK (length(command) BETWEEN 1 AND 4000),
+        reason TEXT CHECK (reason IS NULL OR length(reason) <= 300),
+        creator_user_id TEXT NOT NULL,
+        workspace_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        thread_ts TEXT NOT NULL,
+        origin_turn_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        resolution TEXT CHECK (resolution IN ('confirmed', 'cancelled', 'superseded')),
+        resolved_at INTEGER
+      );
+      CREATE INDEX ssh_command_proposals_thread_pending
+        ON ssh_command_proposals(
+          workspace_id, channel_id, thread_ts, creator_user_id, resolution, expires_at
+        );
+
+      CREATE TABLE ssh_command_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        proposal_id INTEGER NOT NULL,
+        host_alias TEXT NOT NULL,
+        command TEXT NOT NULL,
+        actor_user_id TEXT NOT NULL,
+        exit_code INTEGER,
+        timed_out INTEGER NOT NULL CHECK (timed_out IN (0, 1)),
+        occurred_at INTEGER NOT NULL,
+        FOREIGN KEY(proposal_id) REFERENCES ssh_command_proposals(id)
+      );
+      CREATE INDEX ssh_command_audit_actor ON ssh_command_audit(actor_user_id, occurred_at);
+      CREATE TRIGGER ssh_command_audit_no_update
+        BEFORE UPDATE ON ssh_command_audit
+        BEGIN
+          SELECT RAISE(ABORT, 'ssh command audit records are immutable');
+        END;
+      CREATE TRIGGER ssh_command_audit_no_delete
+        BEFORE DELETE ON ssh_command_audit
+        BEGIN
+          SELECT RAISE(ABORT, 'ssh command audit records are immutable');
+        END;
     `,
   },
 ];

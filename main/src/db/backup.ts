@@ -22,7 +22,7 @@ export class BackupManager {
     if (age !== null && age < DAY_MS) return null;
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const stamp = new Date(now).toISOString().replaceAll(":", "-");
-    const destination = join(this.directory, `mattgpt-${stamp}.sqlite`);
+    const destination = join(this.directory, `figai-${stamp}.sqlite`);
     writeFileSync(destination, this.db.raw.serialize(), { mode: 0o600 });
     const timestamp = new Date(now);
     utimesSync(destination, timestamp, timestamp);
@@ -35,7 +35,7 @@ export class BackupManager {
   private files(): string[] {
     try {
       return readdirSync(this.directory)
-        .filter((name) => /^mattgpt-.*\.sqlite$/.test(name))
+        .filter((name) => /^figai-.*\.sqlite$/.test(name))
         .sort();
     } catch {
       return [];

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.matgra.mattgpt</string>
+  <string>com.matgra.figai</string>
   <key>ProgramArguments</key>
   <array>
     <string>__EXECUTABLE__</string>

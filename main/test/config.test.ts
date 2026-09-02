@@ -22,6 +22,7 @@ describe("configuration", () => {
     expect(config.imageGenerationModel).toBe("google/gemini-3.1-flash-lite-image");
     expect(config.brainVaultPath).toBeNull();
     expect(config.mediaConnections).toEqual({ sonarr: null, radarr: null, sabnzbd: null });
+    expect(config.sshHosts.size).toBe(0);
     expect([...config.allowedChannelIds]).toEqual(["C123ABC", "G456DEF"]);
   });
 
@@ -63,6 +64,41 @@ describe("configuration", () => {
     ).toThrow("HTTP(S)");
   });
 
+  test("parses optional SSH host aliases with defaults", () => {
+    const config = parseConfig({
+      ...valid,
+      SSH_HOSTS_JSON: JSON.stringify({
+        nas: { host: "192.168.1.10", user: "matt", keyPath: "/home/matt/.ssh/id_ed25519" },
+        homelab: { host: "homelab.local", user: "ops", port: 2222 },
+      }),
+    });
+    expect([...config.sshHosts]).toEqual([
+      [
+        "nas",
+        { host: "192.168.1.10", user: "matt", port: 22, keyPath: "/home/matt/.ssh/id_ed25519" },
+      ],
+      ["homelab", { host: "homelab.local", user: "ops", port: 2222, keyPath: null }],
+    ]);
+  });
+
+  test("rejects malformed SSH host configuration", () => {
+    expect(() => parseConfig({ ...valid, SSH_HOSTS_JSON: "not json" })).toThrow(
+      "must be valid JSON",
+    );
+    expect(() => parseConfig({ ...valid, SSH_HOSTS_JSON: "{}" })).toThrow(
+      "must configure at least one host",
+    );
+    expect(() =>
+      parseConfig({
+        ...valid,
+        SSH_HOSTS_JSON: JSON.stringify({ Bad_Alias: { host: "h", user: "u" } }),
+      }),
+    ).toThrow("host aliases must be lowercase");
+    expect(() =>
+      parseConfig({ ...valid, SSH_HOSTS_JSON: JSON.stringify({ nas: { host: "h" } }) }),
+    ).toThrow("SSH_HOSTS_JSON");
+  });
+
   test("resolves an optional Obsidian Brain vault path", () => {
     expect(parseConfig({ ...valid, OBSIDIAN_VAULT_PATH: "./brain" }).brainVaultPath).toBe(
       join(process.cwd(), "brain"),
@@ -70,11 +106,11 @@ describe("configuration", () => {
   });
 
   test("rejects missing required values", () => {
-    expect(() => parseConfig({})).toThrow("Invalid MattGPT configuration");
+    expect(() => parseConfig({})).toThrow("Invalid FigAi configuration");
   });
 
   test("requires the external env file to be mode 0600", () => {
-    const directory = mkdtempSync(join(tmpdir(), "mattgpt-config-"));
+    const directory = mkdtempSync(join(tmpdir(), "figai-config-"));
     const path = join(directory, ".env");
     writeFileSync(
       path,
