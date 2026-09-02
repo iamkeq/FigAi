@@ -1,6 +1,6 @@
 # FigAi
 
-FigAi is a single-workspace Slack assistant that runs locally on macOS or Linux. It uses Bun, TypeScript, Slack Bolt Socket Mode, SQLite, OpenRouter, and an OS-native user service (`launchd` on macOS or `systemd` on Linux). It opens no inbound network listener and has no repository, email, or workspace-search tool. Its only shell-equivalent capability is explicitly configured, owner-only, confirm-before-execute SSH access to named machines (see "Remote SSH commands" below); it has no other shell tool. Its autonomous work is limited to reminders, agent tasks, and durable workflows explicitly requested by an authorized user.
+FigAi is a single-workspace Slack assistant that runs locally on macOS or Linux. It uses Bun, TypeScript, Slack Bolt Socket Mode, SQLite, OpenRouter, and an OS-native user service (`launchd` on macOS or `systemd` on Linux). By default it opens no inbound network listener; the only opt-in exception is an unauthenticated web chat UI reachable from the LAN (see "Local web UI" below). It has no repository, email, or workspace-search tool. Its only shell-equivalent capability is explicitly configured, owner-only, confirm-before-execute SSH access to named machines (see "Remote SSH commands" below); it has no other shell tool. Its autonomous work is limited to reminders, agent tasks, and durable workflows explicitly requested by an authorized user.
 
 Ask FigAi how much the last answer cost, or for the current thread's usage, to see provider-reported model, token, latency, tool, and cost statistics.
 
@@ -48,6 +48,7 @@ Edit that `.env` and set:
 - `SABNZBD_URL` and `SABNZBD_API_KEY` (optional pair): exact local SABnzbd origin and full API key.
 - `SSH_HOSTS_JSON` (optional): a single-line JSON object of owner-only SSH targets, keyed by lowercase alias. See "Remote SSH commands" below.
 - `FIGAI_DATA_DIR` (optional): absolute application-data override. Linux otherwise uses `${XDG_DATA_HOME:-$HOME/.local/share}/figai`.
+- `WEB_UI_PORT` (optional): serves a local chat UI on that port. See "Local web UI" below.
 
 The text model defaults are `openai/gpt-5.6-luna` and `google/gemini-3.7-flash`; both can be overridden. Luna is the cost-efficient primary and default directive-policy model, while Gemini is used when a transient primary-provider failure requires one fallback attempt. Directive policy remains a separate constrained model call and intentionally does not use the cheaper loading-status model. Image generation defaults to `google/gemini-3.1-flash-lite-image` and can be overridden with `IMAGE_GENERATION_MODEL`. Web research uses Exa with at most eight results, avoiding a separate high-cost model pass for search. Secrets never appear in the Slack manifest, LaunchAgent, or systemd unit.
 
@@ -147,6 +148,16 @@ SSH_HOSTS_JSON={"nas":{"host":"192.168.1.10","user":"matt","port":22,"keyPath":"
 ```
 
 `port` defaults to `22`; omitting `keyPath` falls back to `ssh`'s normal identity resolution (an running `ssh-agent` or its default key files). Because this grants shell access to whatever the target user account can do, only add hosts and keys you are comfortable handing to FigAi's owner, and keep the target account's own privileges as narrow as the task requires.
+
+### Local web UI
+
+When `WEB_UI_PORT` is configured, FigAi also serves a minimal browser chat UI on that port alongside Slack, so you can talk to it directly without going through Slack. It's reachable at `http://localhost:<port>` on this machine and at `http://<this machine's LAN IP>:<port>` from any other device on your network:
+
+- **No authentication.** The server listens on all interfaces with no login of any kind—anyone who can reach the port, including anyone else on your LAN or WiFi, gets the page and full owner-level tool access. Only run this on a network you trust, and do not forward the port to the internet or put it behind a public reverse proxy without adding your own authentication first.
+- **Same owner, same tools.** The web session always runs as the configured owner in a single persistent conversation, so it has full owner-level tool access—Brain, reminders, skills, media, SSH commands with the same propose/confirm flow, everything Slack has.
+- **Change models on the fly.** The header has a model field; typing a `provider/model` id and submitting validates it against OpenRouter's catalog and switches immediately, same as `/figai model`. A reset button restores `PRIMARY_MODEL` from `.env`.
+- **Separate conversation history.** The web chat keeps its own in-memory thread (cleared on restart) and its own SSH/skill confirmation state, isolated from any Slack thread; personal memories, preferences, and directives are still shared with the owner's Slack DM since they belong to the same user.
+- **Scope of this first pass:** temporary-directive release detection and durable-workflow event matching, which are driven by inbound Slack messages, do not run on the web surface yet; everything else works the same.
 
 FigAi resolves the safe display name of each internal human participating in the loaded Slack thread and labels that participant's messages for the model. This uses the existing `users:read` scope and does not expose Slack IDs to the model or persist participant profiles. On an explicit request to view, describe, compare, or use a Slack profile/avatar, FigAi can inspect the requester, owner, or an internal user participating in the current thread, including by a uniquely resolved participant name. It returns only selected profile fields and, when visual inspection is requested, downloads one validated image (10 MB maximum) into mode-`0600` temporary storage, forwards it to the model as base64, and deletes it after the turn. Profiles are never enumerated, injected automatically, or stored in SQLite or logs.
 
