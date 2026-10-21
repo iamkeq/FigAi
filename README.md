@@ -13,6 +13,7 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 - `figai/ssh/` -- key-based SSH: `ssh_run`, and the remote/local Obsidian vault backends behind `memory_read/write/search`.
 - `figai/obs/` -- OBS Studio control over its WebSocket server (recording/streaming/scenes).
 - `figai/voice/` -- the wake-word listening loop (testable in isolation) plus real adapters for the microphone, openWakeWord, and a local Whisper model.
+- `figai/reminders/` -- an in-memory one-off reminder scheduler (`set_reminder`/`list_reminders`/`cancel_reminder`) that posts back to Slack after a delay.
 - `figai/skills_system/` -- the skill loader: discovers `skills/*/SKILL.md`, loads full instructions lazily, and keeps `skills/_pending/` inert until you `!approve` it.
 - `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export), `obs` (recording/streaming/scenes).
 - `figai/scheduler/`, `figai/email/`, `figai/browser_bridge/` -- interface stubs for later phases (not built yet).
@@ -118,6 +119,10 @@ restarts automatically (up to 5 times) if it crashes.
   explicit "yes" in a **later** message before anything actually happens.
 - Skills Fig drafts for itself (when you ask it to learn something) are written
   to `skills/_pending/` and never activate until you `!approve` them.
+- Reminders: "remind me in 20 minutes to check the oven" posts back to that
+  same conversation (or thread) by default; say a specific channel ID to send
+  it elsewhere instead. These are in-memory -- a reminder is lost if Fig
+  restarts before it fires.
 - Voice ("fig, open obs"): off by default. Enable it in `config.yaml` under
   `voice:` (`enabled: true`). It listens locally for a wake word, transcribes
   your command with a local Whisper model, and runs it through the same agent

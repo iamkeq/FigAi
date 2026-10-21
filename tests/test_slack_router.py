@@ -10,6 +10,7 @@ from figai.frontends.slack_router import (
     is_authorized_message,
     strip_mentions,
 )
+from figai.reminders.context import ConversationContext
 from figai.skills_system.loader import SkillLoader
 
 
@@ -38,7 +39,9 @@ def make_app_config(tmp_path: Path) -> SimpleNamespace:
 
 def make_router(tmp_path: Path, reply: str = "ok", raise_error: bool = False) -> SlackRouter:
     loader = SkillLoader(tmp_path / "skills")
-    session = SimpleNamespace(loop=FakeLoop(reply, raise_error), loader=loader)
+    session = SimpleNamespace(
+        loop=FakeLoop(reply, raise_error), loader=loader, conversation_context=ConversationContext()
+    )
     return SlackRouter(session=session, config=make_app_config(tmp_path), allowed_user_id="U_OWNER")
 
 
@@ -257,6 +260,36 @@ def test_hooks_fire_even_when_agent_loop_errors(tmp_path: Path) -> None:
     router.handle_event(dm_event("hi"), on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done"))
 
     assert calls == ["start", "done"]
+
+
+# -- conversation_context (so set_reminder can default to "notify here") -----
+
+
+def test_dm_updates_conversation_context_channel_with_no_thread(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+
+    router.handle_event(dm_event("hi", channel="D1"))
+
+    assert router.session.conversation_context.current_channel == "D1"
+    assert router.session.conversation_context.current_thread_ts is None
+
+
+def test_mentioned_thread_updates_conversation_context_with_thread_ts(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+
+    router.handle_app_mention(mention_event("hey Fig", channel="C1", ts="100.1"))
+
+    assert router.session.conversation_context.current_channel == "C1"
+    assert router.session.conversation_context.current_thread_ts == "100.1"
+
+
+def test_ignored_message_does_not_touch_conversation_context(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    router.session.conversation_context.current_channel = "D_PREVIOUS"
+
+    router.handle_event(channel_event("ambient chatter, not addressed"))
+
+    assert router.session.conversation_context.current_channel == "D_PREVIOUS"
 
 
 # -- Commands (work the same keyed by any conversation id) --------------------

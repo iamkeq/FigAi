@@ -29,6 +29,16 @@ def build_file_sender(app: App, channel: str):
     return _send
 
 
+def build_message_sender(app: App):
+    def _send(channel: str, text: str, thread_ts: str | None) -> None:
+        if thread_ts:
+            app.client.chat_postMessage(channel=channel, text=text, thread_ts=thread_ts)
+        else:
+            app.client.chat_postMessage(channel=channel, text=text)
+
+    return _send
+
+
 def _add_reaction(app: App, channel: str, ts: str, name: str) -> None:
     try:
         app.client.reactions_add(channel=channel, timestamp=ts, name=name)
@@ -51,7 +61,9 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
     app = App(token=config.settings.slack_bot_token)
     owner_channel = config.settings.allowed_slack_user_id
 
-    session = AgentSession(config, file_sender=build_file_sender(app, owner_channel))
+    session = AgentSession(
+        config, file_sender=build_file_sender(app, owner_channel), message_sender=build_message_sender(app)
+    )
     router = SlackRouter(session=session, config=config, allowed_user_id=owner_channel)
 
     if on_ready is not None:

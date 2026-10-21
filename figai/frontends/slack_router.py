@@ -12,8 +12,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-Hook = Callable[[], None] | None
-
 from figai.agent.loop import Message
 from figai.config import Config
 from figai.logging_setup import get_logger
@@ -23,6 +21,7 @@ logger = get_logger("slack")
 
 RESTART_SENTINEL = "__RESTART__"
 MENTION_PATTERN = re.compile(r"<@[A-Z0-9]+>")
+Hook = Callable[[], None] | None
 
 
 def is_authorized_message(event: dict[str, Any], allowed_user_id: str) -> bool:
@@ -72,13 +71,13 @@ class SlackRouter:
         channel = event.get("channel", "unknown")
 
         if event.get("channel_type") == "im":
-            return self._dispatch(channel, text, on_start, on_done)
+            return self._dispatch(channel, text, on_start, on_done, channel=channel)
 
         thread_ts = event.get("thread_ts")
         if thread_ts is None or (channel, thread_ts) not in self.active_threads:
             return None  # ambient channel chatter Fig wasn't addressed in
 
-        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, thread_ts=thread_ts)
+        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, channel=channel, thread_ts=thread_ts)
 
     def handle_app_mention(
         self, event: dict[str, Any], on_start: Hook = None, on_done: Hook = None
@@ -100,11 +99,22 @@ class SlackRouter:
         if not text:
             text = "(you mentioned me with no message)"
 
-        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, thread_ts=thread_ts)
+        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, channel=channel, thread_ts=thread_ts)
 
     def _dispatch(
-        self, conversation_key: str, text: str, on_start: Hook, on_done: Hook, thread_ts: str | None = None
+        self,
+        conversation_key: str,
+        text: str,
+        on_start: Hook,
+        on_done: Hook,
+        channel: str,
+        thread_ts: str | None = None,
     ) -> SlackReply:
+        context = getattr(self.session, "conversation_context", None)
+        if context is not None:
+            context.current_channel = channel
+            context.current_thread_ts = thread_ts
+
         if on_start:
             on_start()
         reply_text = self.handle_text(conversation_key, text)
