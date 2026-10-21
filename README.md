@@ -39,8 +39,9 @@ python -m venv .venv
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) -> **Create New App** -> **From an app manifest**.
 2. Paste the contents of [`slack-manifest.yaml`](slack-manifest.yaml). It requests
    `chat:write`, `im:history`, `im:write`, `files:write`, `app_mentions:read`,
-   `channels:history`, `groups:history`, `reactions:write`, subscribes to
-   `message.im`, `message.channels`, `message.groups`, and `app_mention`, and
+   `channels:history`, `groups:history`, `reactions:write`, `channels:read`,
+   `groups:read`, subscribes to `message.im`, `message.channels`,
+   `message.groups`, and `app_mention`, and
    enables Socket Mode.
 3. Under **Socket Mode**, enable it and generate an app-level token with the
    `connections:write` scope -- this is your `SLACK_APP_TOKEN` (`xapp-...`).
@@ -120,9 +121,9 @@ restarts automatically (up to 5 times) if it crashes.
 - Skills Fig drafts for itself (when you ask it to learn something) are written
   to `skills/_pending/` and never activate until you `!approve` them.
 - Reminders: "remind me in 20 minutes to check the oven" posts back to that
-  same conversation (or thread) by default; say a specific channel ID to send
-  it elsewhere instead. These are in-memory -- a reminder is lost if Fig
-  restarts before it fires.
+  same conversation (or thread) by default; name a channel (e.g. "post it to
+  general") and Fig resolves it with `list_channels` first. These are
+  in-memory -- a reminder is lost if Fig restarts before it fires.
 - `web_search` looks things up live via OpenRouter's web plugin (sources
   included) -- unlike everything else in Fig, this costs real OpenRouter
   credit per call. `fetch_url` reads one specific public page's text for free

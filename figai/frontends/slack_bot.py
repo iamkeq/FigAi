@@ -39,6 +39,23 @@ def build_message_sender(app: App):
     return _send
 
 
+def build_channel_lister(app: App):
+    def _list() -> list[dict[str, str]]:
+        channels: list[dict[str, str]] = []
+        cursor: str | None = None
+        while True:
+            result = app.client.conversations_list(
+                types="public_channel,private_channel", limit=200, cursor=cursor, exclude_archived=True
+            )
+            channels.extend({"id": c["id"], "name": c["name"]} for c in result.get("channels", []))
+            cursor = (result.get("response_metadata") or {}).get("next_cursor") or None
+            if not cursor:
+                break
+        return channels
+
+    return _list
+
+
 def _add_reaction(app: App, channel: str, ts: str, name: str) -> None:
     try:
         app.client.reactions_add(channel=channel, timestamp=ts, name=name)
@@ -62,7 +79,10 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
     owner_channel = config.settings.allowed_slack_user_id
 
     session = AgentSession(
-        config, file_sender=build_file_sender(app, owner_channel), message_sender=build_message_sender(app)
+        config,
+        file_sender=build_file_sender(app, owner_channel),
+        message_sender=build_message_sender(app),
+        channel_lister=build_channel_lister(app),
     )
     router = SlackRouter(session=session, config=config, allowed_user_id=owner_channel)
 

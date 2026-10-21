@@ -25,6 +25,7 @@ from figai.ssh.local_vault import LocalVaultBackend
 from figai.ssh.memory import load_index_note, register_memory_tools
 from figai.ssh.remote_vault import RemoteVaultBackend
 from figai.ssh.run import register_ssh_run_tools
+from figai.tools.channels import ChannelLister, register_list_channels_tool
 from figai.tools.clipboard import register_clipboard_tools
 from figai.tools.confirm import ConfirmationStore
 from figai.tools.fetch_url import register_fetch_url_tool
@@ -66,6 +67,7 @@ def build_tool_registry(
     file_sender: FileSender | None,
     reminder_scheduler: ReminderScheduler,
     conversation_context: ConversationContext,
+    channel_lister: ChannelLister | None,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -95,6 +97,7 @@ def build_tool_registry(
     register_obs_tools(registry, build_obs_client_factory(config))
 
     register_reminder_tools(registry, reminder_scheduler, conversation_context)
+    register_list_channels_tool(registry, channel_lister)
 
     return registry
 
@@ -105,7 +108,11 @@ class AgentSession:
     (for front-ends that need to recognize a user's confirming reply)."""
 
     def __init__(
-        self, config: Config, file_sender: FileSender | None = None, message_sender: MessageSender | None = None
+        self,
+        config: Config,
+        file_sender: FileSender | None = None,
+        message_sender: MessageSender | None = None,
+        channel_lister: ChannelLister | None = None,
     ) -> None:
         self.config = config
         self.loader = SkillLoader(SKILLS_ROOT)
@@ -138,6 +145,7 @@ class AgentSession:
             file_sender,
             self.reminder_scheduler,
             self.conversation_context,
+            channel_lister,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())
