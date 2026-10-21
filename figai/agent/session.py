@@ -14,6 +14,7 @@ from figai.brain_map.tools import register_brain_map_tool
 from figai.browser_bridge.state import BridgeState
 from figai.browser_bridge.tools import register_browser_bridge_tools
 from figai.config import Config
+from figai.gmail.tools import register_email_tools
 from figai.logging_setup import get_logger
 from figai.media.tools import register_media_tools
 from figai.obs.client import build_client_factory as build_obs_client_factory
@@ -107,6 +108,7 @@ def build_tool_registry(
     register_self_update_tools(registry, confirmations, on_updated=on_updated)
     register_version_info_tool(registry, config)
     register_browser_bridge_tools(registry, bridge_state, enabled=bool(config.settings.browser_bridge_token))
+    register_email_tools(registry, config)
 
     return registry
 
