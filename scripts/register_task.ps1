@@ -26,7 +26,7 @@ if (-not (Test-Path $PythonwPath)) {
 
 $action = New-ScheduledTaskAction -Execute $PythonwPath -Argument "-m figai" -WorkingDirectory $WorkingDirectory
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+$principal = New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
     -RestartCount 5 `
     -RestartInterval (New-TimeSpan -Minutes 1) `
@@ -36,8 +36,32 @@ $settings = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit ([TimeSpan]::Zero)  # Task Scheduler's default would kill Fig after 72 hours
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
-    -Description "Fig: personal background AI assistant" -Force
+function New-StartupShortcut {
+    # No-admin fallback: a shortcut in the Startup folder launches Fig hidden at
+    # logon. Unlike the scheduled task it doesn't restart Fig if it crashes.
+    $link = Join-Path ([Environment]::GetFolderPath("Startup")) "FigAI.lnk"
+    $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+    $shortcut.TargetPath = $PythonwPath
+    $shortcut.Arguments = "-m figai"
+    $shortcut.WorkingDirectory = $WorkingDirectory
+    $shortcut.WindowStyle = 7
+    $shortcut.Save()
+    return $link
+}
+
+try {
+    Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
+        -Description "Fig: personal background AI assistant" -Force -ErrorAction Stop | Out-Null
+    # Confirm it really exists -- never report success on faith.
+    Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null
+} catch {
+    Write-Warning "Could not register the scheduled task: $($_.Exception.Message)"
+    Write-Warning "For the full setup (restarts on crash), re-run this from PowerShell opened with 'Run as administrator'."
+    $link = New-StartupShortcut
+    Write-Host "Fallback installed instead: '$link' starts Fig (hidden) at every logon. Start it now with:"
+    Write-Host "  .\scripts\figai.ps1 start"
+    exit 1
+}
 
 Write-Host "Registered scheduled task '$TaskName'."
 Write-Host "It starts automatically at your next logon, or right now with:"
