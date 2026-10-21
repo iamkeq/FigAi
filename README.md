@@ -157,6 +157,12 @@ a single-instance guard stops a second copy from starting and double-replying
 in Slack. The tray icon's menu (Status / Open Logs / Restart / Quit) is the
 on-screen control.
 
+Note: on Python 3.13 a venv's `pythonw.exe` is a launcher that starts the real
+interpreter as the console `python.exe`, which opens its own console window.
+Fig detects a console it owns at startup (background mode only) and hides and
+detaches it, so there may be a split-second flash at launch but no lasting
+window. `--cli` is unaffected.
+
 ## Chrome tab bridge
 
 Lets Fig answer "what tabs do I have open?" and "open <site>" in your running

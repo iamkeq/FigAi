@@ -31,8 +31,8 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Under pythonw.exe (no console attached) sys.stdout is None; a StreamHandler
     # pointed at it would raise on every log call, so only attach it when a
-    # console is actually available (e.g. `--cli` mode run from a terminal).
-    if sys.stdout is not None:
+    # real terminal is actually available (e.g. `--cli` mode run from a terminal).
+    if sys.stdout is not None and sys.stdout.isatty():
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)

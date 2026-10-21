@@ -80,3 +80,59 @@ def test_single_instance_blocks_a_second_holder_until_released() -> None:
         assert acquire_single_instance(port, timeout=1) is True
     finally:
         release_single_instance()
+
+
+def _fake_windll(hwnd: int):
+    import types
+
+    calls: list[tuple] = []
+    kernel32 = types.SimpleNamespace(GetConsoleWindow=lambda: hwnd, FreeConsole=lambda: calls.append(("free",)))
+    user32 = types.SimpleNamespace(ShowWindow=lambda h, cmd: calls.append(("show", h, cmd)))
+    return types.SimpleNamespace(kernel32=kernel32, user32=user32), calls
+
+
+def test_detach_console_hides_then_frees_an_owned_console(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ctypes
+
+    windll, calls = _fake_windll(hwnd=1234)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "windll", windll, raising=False)
+
+    assert process_utils.detach_console() is True
+    assert calls == [("show", 1234, 0), ("free",)]
+
+
+def test_detach_console_does_nothing_without_a_console(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ctypes
+
+    windll, calls = _fake_windll(hwnd=0)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(ctypes, "windll", windll, raising=False)
+
+    assert process_utils.detach_console() is False
+    assert calls == []
+
+
+def test_detach_console_is_a_noop_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert process_utils.detach_console() is False
+
+
+def test_logging_skips_console_handler_when_stdout_is_not_a_terminal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import io
+    import logging
+
+    from figai import logging_setup
+
+    monkeypatch.setattr(logging_setup, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(logging_setup, "LOG_FILE", tmp_path / "figai.log")
+    monkeypatch.setattr(sys, "stdout", io.StringIO())  # not a tty, like the log file after detaching
+
+    logger = logging_setup.setup_logging("INFO")
+
+    assert not any(type(h) is logging.StreamHandler for h in logger.handlers)
+    for handler in list(logger.handlers):
+        handler.close()
+        logger.removeHandler(handler)

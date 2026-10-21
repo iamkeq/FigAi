@@ -45,6 +45,27 @@ def ensure_std_streams(log_dir: Path = LOG_DIR) -> None:
         sys.stderr = stream
 
 
+def detach_console() -> bool:
+    """Hide and detach the console this process owns (Windows only).
+
+    Python 3.13's venv pythonw.exe is a launcher that starts the real interpreter
+    as the *console* python.exe, which allocates its own console window even
+    though the task asked for a windowless pythonw. That child is the only
+    process attached to that console, so freeing it closes the window. Returns
+    True if a console was detached (std streams are then dead and need
+    replacing)."""
+    if sys.platform != "win32":
+        return False
+    import ctypes
+
+    hwnd = ctypes.windll.kernel32.GetConsoleWindow()  # type: ignore[attr-defined]
+    if not hwnd:
+        return False
+    ctypes.windll.user32.ShowWindow(hwnd, 0)  # type: ignore[attr-defined]  # SW_HIDE (classic console host)
+    ctypes.windll.kernel32.FreeConsole()  # type: ignore[attr-defined]
+    return True
+
+
 def install_excepthooks() -> None:
     """Record uncaught exceptions (main and worker threads) in the log, since
     with no console window nobody would ever see the traceback."""

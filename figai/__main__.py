@@ -7,7 +7,7 @@ import sys
 
 from figai.config import Config, ConfigError
 from figai.logging_setup import get_logger, setup_logging
-from figai.process_utils import acquire_single_instance, ensure_std_streams, install_excepthooks
+from figai.process_utils import acquire_single_instance, detach_console, ensure_std_streams, install_excepthooks
 
 
 def main() -> int:
@@ -17,7 +17,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Under pythonw.exe (no console) these make stray output and crashes land in logs/.
+    # Background mode must never keep a window open (see detach_console); the dead
+    # std streams are replaced with a log file, along with crash tracebacks.
+    if not args.cli and detach_console():
+        sys.stdout = sys.stderr = None
     ensure_std_streams()
     install_excepthooks()
 
