@@ -12,6 +12,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from figai.agent.session import AgentSession
+from figai.browser_bridge.server import start_bridge_server
 from figai.config import Config
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
@@ -112,6 +113,12 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         on_updated=_on_updated,
     )
     router = SlackRouter(session=session, config=config, allowed_user_id=owner_channel)
+
+    if config.settings.browser_bridge_token:
+        try:
+            start_bridge_server(session.bridge_state, config.settings.browser_bridge_token, config.app.browser_bridge_port)
+        except OSError:
+            logger.exception("Browser bridge could not start (is port %d in use?)", config.app.browser_bridge_port)
 
     router.restore_state(state.get("slack", {}))
     session.reminder_scheduler.restore(state.get("reminders", []))

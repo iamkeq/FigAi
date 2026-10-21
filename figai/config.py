@@ -108,6 +108,8 @@ class Settings(BaseModel):
     # Optional: lets propose_update_fig look up which PR/labels a commit came
     # from on a private repo. Not needed for a public repo; omit if unused.
     github_token: str | None = None
+    # Shared secret for the Chrome tab-bridge extension; the bridge is off without it.
+    browser_bridge_token: str | None = None
 
     @classmethod
     def from_env(cls, env_path: Path = DEFAULT_ENV_PATH) -> "Settings":
@@ -139,9 +141,17 @@ class Settings(BaseModel):
                 sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY"),
                 obs=ObsConnection.from_env(),
                 github_token=os.environ.get("GITHUB_TOKEN") or None,
+                browser_bridge_token=_bridge_token(),
             )
         except ValidationError as exc:
             raise ConfigError(f"Invalid .env configuration: {exc}") from exc
+
+
+def _bridge_token() -> str | None:
+    token = os.environ.get("BROWSER_BRIDGE_TOKEN") or None
+    if token is not None and len(token) < 16:
+        raise ConfigError("BROWSER_BRIDGE_TOKEN must be at least 16 characters (use a long random string)")
+    return token
 
 
 def _require_env(name: str) -> str:
@@ -167,6 +177,8 @@ class AppConfig(BaseModel):
     # Slack channel (by name) Fig announces "back online" in at startup,
     # including which PR was applied if it just updated itself.
     startup_announcement_channel: str = "general"
+    # Localhost port the Chrome tab-bridge extension talks to (see browser_extension/).
+    browser_bridge_port: int = 8765
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_CONFIG_PATH) -> "AppConfig":

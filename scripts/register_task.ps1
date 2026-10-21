@@ -13,7 +13,7 @@
 
 param(
     [string]$TaskName = "FigAI",
-    [string]$PythonwPath = "$PSScriptRoot\..\.venv\Scripts\pythonw.exe",
+    [string]$PythonwPath = (Join-Path (Resolve-Path "$PSScriptRoot\..").Path ".venv\Scripts\pythonw.exe"),
     [string]$WorkingDirectory = (Resolve-Path "$PSScriptRoot\..").Path
 )
 
@@ -32,7 +32,9 @@ $settings = New-ScheduledTaskSettingsSet `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -StartWhenAvailable `
     -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries
+    -DontStopIfGoingOnBatteries `
+    -MultipleInstances IgnoreNew `
+    -ExecutionTimeLimit ([TimeSpan]::Zero)  # Task Scheduler's default would kill Fig after 72 hours
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
     -Description "Fig: personal background AI assistant" -Force

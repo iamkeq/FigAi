@@ -17,7 +17,8 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 - `figai/persistence/` -- a small atomic JSON store Fig uses to persist active Slack threads, conversation histories, and pending reminders across restarts.
 - `figai/skills_system/` -- the skill loader: discovers `skills/*/SKILL.md`, loads full instructions lazily, and keeps `skills/_pending/` inert until you `!approve` it.
 - `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export), `obs` (recording/streaming/scenes).
-- `figai/scheduler/`, `figai/email/`, `figai/browser_bridge/` -- interface stubs for later phases (not built yet).
+- `figai/browser_bridge/` + `browser_extension/` -- a localhost-only server and a Chrome extension that let Fig list your open tabs and open a tab on request.
+- `figai/scheduler/`, `figai/email/` -- interface stubs for later phases (not built yet).
 
 ## Setup
 
@@ -137,6 +138,43 @@ applied and its label -- e.g. "Fig is back online after a code update: PR #8
 (label: enhancement)." That lookup uses GitHub's API; for a private repo, set
 `GITHUB_TOKEN` in `.env` (read-only is enough), otherwise the message just
 says a code update happened.
+
+## Running without a command window
+
+Fig is built to run as a windowless background process -- you never need a
+terminal open. Closing a window running plain `python -m figai` kills it, so
+use one of these instead:
+
+```powershell
+.\scripts\register_task.ps1      # once: start at every logon, restart on crash, no time limit
+.\scripts\figai.ps1 start        # start now (hidden); also: stop | restart | status | logs
+```
+
+Under `pythonw.exe` there is no console, so Fig sends stray output and any
+crash traceback to `logs\figai-console.log` and `logs\figai.log`, child
+processes (git/pip during an update) are started without flashing windows, and
+a single-instance guard stops a second copy from starting and double-replying
+in Slack. The tray icon's menu (Status / Open Logs / Restart / Quit) is the
+on-screen control.
+
+## Chrome tab bridge
+
+Lets Fig answer "what tabs do I have open?" and "open <site>" in your running
+Chrome. Nothing leaves your computer: the extension only talks to Fig on
+`127.0.0.1`, protected by a shared secret.
+
+1. Generate a token: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+2. Put it in `.env` as `BROWSER_BRIDGE_TOKEN=...`, then restart Fig.
+3. In Chrome open `chrome://extensions`, turn on **Developer mode**, click
+   **Load unpacked**, and pick the `browser_extension` folder.
+4. Open the extension's **Options** (click its icon, or Details > Extension
+   options), paste the same token, set the port if you changed
+   `browser_bridge_port`, and **Save**.
+
+Then ask Fig things like "list my open tabs" or "open github.com". If Chrome
+isn't running (or the extension isn't set up), Fig says so; `open_url` still
+works as a fallback. Tab titles and URLs are treated as untrusted data, and
+`open_tab` only accepts http(s) URLs.
 
 ## Using Fig
 

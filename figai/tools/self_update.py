@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from figai.agent.tools import Tool, ToolRegistry
 from figai.logging_setup import get_logger
+from figai.process_utils import quiet_run
 from figai.reminders.scheduler import TimerFactory, default_timer_factory
 from figai.tools.confirm import ConfirmationStore
 from figai.update.github_info import get_head_sha
@@ -29,7 +30,7 @@ def default_restart() -> None:
     os.execv(sys.executable, [sys.executable, "-m", "figai"])
 
 
-def pull_and_reinstall(runner: Callable[..., Any] = subprocess.run) -> None:
+def pull_and_reinstall(runner: Callable[..., Any] = quiet_run) -> None:
     try:
         runner(["git", "pull"], check=True, capture_output=True, text=True, timeout=60)
         runner(
@@ -48,7 +49,7 @@ def pull_and_reinstall(runner: Callable[..., Any] = subprocess.run) -> None:
 def register_self_update_tools(
     registry: ToolRegistry,
     confirmations: ConfirmationStore,
-    runner: Callable[..., Any] = subprocess.run,
+    runner: Callable[..., Any] = quiet_run,
     restart: Callable[[], None] = default_restart,
     timer_factory: TimerFactory = default_timer_factory,
     get_sha: Callable[[], str] = get_head_sha,
