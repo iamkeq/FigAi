@@ -1,0 +1,3 @@
+"""Fig: a personal background AI assistant."""
+
+__version__ = "0.1.0"

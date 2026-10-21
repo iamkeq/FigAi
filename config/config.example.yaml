@@ -1,0 +1,34 @@
+# Copy to config.yaml next to this file and edit. No secrets belong here.
+
+models:
+  default_chat: "openai/gpt-5.6-luna"
+  vision: "google/gemini-3.1-flash-lite-image"
+
+vault:
+  # Must match an SSH_HOST_<alias> in .env.
+  ssh_host_alias: "vault"
+  # Absolute path to the vault root on the remote machine.
+  remote_path: "/home/matt/ObsidianVault"
+  # Subfolder (relative to remote_path) Fig may write to. Reads may cover the whole vault.
+  remote_writable_subfolder: "AI"
+  # Local, fully independent vault used when the remote one is unreachable.
+  # Not synced or merged with the remote vault -- reconcile manually in Obsidian.
+  local_path: "C:\\Users\\matt\\FigAi\\local_vault"
+  index_note: "AI/index.md"
+
+# Friendly name -> absolute path to the executable.
+allowlisted_programs:
+  steam: "C:\\Program Files (x86)\\Steam\\Steam.exe"
+  obs: "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe"
+
+# Absolute folders search_files is allowed to look in.
+allowlisted_folders:
+  - "C:\\Users\\matt\\Documents"
+  - "C:\\Users\\matt\\Downloads"
+
+limits:
+  max_agent_iterations: 10
+  max_send_file_mb: 25
+  confirmation_timeout_seconds: 300
+
+log_level: "INFO"

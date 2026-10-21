@@ -1,0 +1,166 @@
+"""memory_read / memory_write / memory_search: the remote Obsidian vault first,
+falling back to the fully independent local vault when the remote one is
+unreachable. The two vaults are never merged or synced automatically."""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Callable
+
+from figai.agent.tools import Tool, ToolRegistry
+from figai.config import Config
+from figai.logging_setup import get_logger
+from figai.ssh.local_vault import LocalVaultBackend
+from figai.ssh.remote_vault import RemoteVaultBackend
+from figai.ssh.vault_common import VaultPathError
+from figai.tools.confirm import ConfirmationStore
+
+logger = get_logger("ssh.memory")
+
+RemoteFactory = Callable[[], RemoteVaultBackend]
+VaultBackend = LocalVaultBackend | RemoteVaultBackend
+OVERWRITE_ACTION_TYPE = "memory_overwrite"
+
+
+def with_fallback(
+    remote_factory: RemoteFactory, local: LocalVaultBackend, operation: Callable[[VaultBackend], Any]
+) -> tuple[Any, str]:
+    """Runs `operation` against the remote vault; on any connectivity failure
+    (including a missing/misconfigured host), falls back to the local vault for
+    that one call. A VaultPathError is a rejection, not a connectivity failure,
+    so it propagates instead of silently retrying against the other backend."""
+    try:
+        remote = remote_factory()
+        return operation(remote), "remote"
+    except VaultPathError:
+        raise
+    except OSError as exc:
+        logger.warning("Remote vault unreachable (%s); falling back to local vault", exc)
+        return operation(local), "local"
+
+
+def load_index_note(remote_factory: RemoteFactory, local: LocalVaultBackend, index_note: str) -> tuple[str | None, str | None]:
+    try:
+        content, backend = with_fallback(remote_factory, local, lambda b: b.read(index_note))
+        return content, backend
+    except FileNotFoundError:
+        return None, None
+    except VaultPathError:
+        return None, None
+
+
+def _note_exists(remote_factory: RemoteFactory, local: LocalVaultBackend, path: str) -> bool:
+    try:
+        with_fallback(remote_factory, local, lambda b: b.read(path))
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def register_memory_tools(
+    registry: ToolRegistry,
+    config: Config,
+    remote_factory: RemoteFactory,
+    local: LocalVaultBackend,
+    confirmations: ConfirmationStore,
+) -> None:
+    def _read(arguments: dict[str, Any]) -> str:
+        path = arguments["path"]
+        try:
+            content, backend = with_fallback(remote_factory, local, lambda b: b.read(path))
+        except (VaultPathError, FileNotFoundError) as exc:
+            return json.dumps({"error": str(exc)})
+        return json.dumps({"backend": backend, "content": content})
+
+    registry.register(
+        Tool(
+            name="memory_read",
+            description=(
+                "Read a note from the Obsidian vault by its path relative to the vault root "
+                "(e.g. 'AI/index.md'). Reads may cover the whole vault."
+            ),
+            parameters={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+            handler=_read,
+        )
+    )
+
+    def _write_now(path: str, content: str) -> str:
+        try:
+            _, backend = with_fallback(remote_factory, local, lambda b: b.write(path, content))
+        except VaultPathError as exc:
+            return json.dumps({"error": str(exc)})
+        return json.dumps({"status": "written", "backend": backend})
+
+    def _write(arguments: dict[str, Any]) -> str:
+        path = arguments["path"]
+        content = arguments["content"]
+
+        if _note_exists(remote_factory, local, path):
+            preview = f"Overwrite existing vault note '{path}'"
+            token = confirmations.propose(OVERWRITE_ACTION_TYPE, {"path": path, "content": content}, preview)
+            logger.info("Proposed memory overwrite token=%s path=%s", token, path)
+            return json.dumps(
+                {
+                    "status": "awaiting_confirmation",
+                    "token": token,
+                    "preview": preview,
+                    "note": (
+                        "This note already exists. Wait for the user's explicit yes in a LATER "
+                        "message before calling resolve_memory_write."
+                    ),
+                }
+            )
+
+        return _write_now(path, content)
+
+    registry.register(
+        Tool(
+            name="memory_write",
+            description=(
+                f"Write a NEW note into the vault. Restricted to the "
+                f"'{config.app.vault.remote_writable_subfolder}/' subfolder. If the note already "
+                "exists, this instead returns a confirmation token -- use resolve_memory_write "
+                "after the user explicitly confirms the overwrite."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
+                "required": ["path", "content"],
+            },
+            handler=_write,
+        )
+    )
+
+    def _resolve_write(arguments: dict[str, Any]) -> str:
+        token = arguments["token"]
+        try:
+            payload = confirmations.resolve(token, OVERWRITE_ACTION_TYPE)
+        except (KeyError, TimeoutError) as exc:
+            return json.dumps({"error": str(exc)})
+        return _write_now(payload["path"], payload["content"])
+
+    registry.register(
+        Tool(
+            name="resolve_memory_write",
+            description=(
+                "Overwrite an existing vault note, after the user has explicitly confirmed it in a "
+                "later message. Never call this in the same turn memory_write proposed it."
+            ),
+            parameters={"type": "object", "properties": {"token": {"type": "string"}}, "required": ["token"]},
+            handler=_resolve_write,
+        )
+    )
+
+    def _search(arguments: dict[str, Any]) -> str:
+        query = arguments["query"]
+        results, backend = with_fallback(remote_factory, local, lambda b: b.search(query))
+        return json.dumps({"backend": backend, "results": results})
+
+    registry.register(
+        Tool(
+            name="memory_search",
+            description="Search the vault's Markdown notes for a query string.",
+            parameters={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+            handler=_search,
+        )
+    )
