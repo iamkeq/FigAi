@@ -131,6 +131,26 @@ pulling from GitHub, reinstalling, and restarting (`propose_update_fig` /
 `resolve_update_fig`), and runs only after you explicitly confirm in a later
 message.
 
+#### Nightly auto-update (4 AM)
+
+To have the PC update Fig by itself every night, run once from an
+**administrator** PowerShell in the Fig folder:
+
+```powershell
+.\scripts\update_and_restart.ps1 -InstallNightly          # 04:00 daily
+.\scripts\update_and_restart.ps1 -InstallNightly -At 05:30 # another time
+.\scripts\update_and_restart.ps1 -RemoveNightly           # uninstall
+```
+
+It registers a hidden scheduled task (`FigAI-NightlyUpdate`) that runs the same
+script with `-OnlyIfChanged`: it fetches, and only if new commits are on the
+tracked branch does it stop Fig, pull, reinstall and restart. If nothing
+changed it does nothing (and starts Fig if it happened to be down). If Fig
+isn't running 20 seconds after an update, the script rolls back to the previous
+commit (`git reset --keep`), reinstalls and restarts that version. Output goes
+to `logs\update.log`. Test it with `Start-ScheduledTask -TaskName FigAI-NightlyUpdate`.
+The PC must be on and you logged in; a missed run catches up when it wakes.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the
