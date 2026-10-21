@@ -89,3 +89,36 @@ def test_obs_connection_invalid_port_fails_closed(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(ConfigError):
         ObsConnection.from_env()
+
+
+def test_app_config_voice_defaults_to_disabled(valid_config_yaml: Path) -> None:
+    config = AppConfig.from_yaml(valid_config_yaml)
+
+    assert config.voice.enabled is False
+    assert config.voice.wake_word_model == "hey_jarvis"
+
+
+def test_app_config_voice_can_be_enabled_with_custom_settings(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        """
+models:
+  default_chat: "x"
+  vision: "y"
+vault:
+  ssh_host_alias: "vault"
+  remote_path: "/v"
+  local_path: "/tmp/v"
+voice:
+  enabled: true
+  wake_word_model: "alexa"
+  wake_word_threshold: 0.7
+""",
+        encoding="utf-8",
+    )
+
+    config = AppConfig.from_yaml(path)
+
+    assert config.voice.enabled is True
+    assert config.voice.wake_word_model == "alexa"
+    assert config.voice.wake_word_threshold == 0.7

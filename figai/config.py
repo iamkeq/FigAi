@@ -69,6 +69,19 @@ class VaultConfig(BaseModel):
     index_note: str = "AI/index.md"
 
 
+class VoiceConfig(BaseModel):
+    enabled: bool = False
+    # openWakeWord ships pretrained models for specific words ("hey_jarvis",
+    # "alexa", "hey_mycroft", ...); there's no built-in "fig" model. Train a
+    # custom one with openWakeWord's training notebook and point this at its
+    # file path once you have it -- until then this is a working stand-in.
+    wake_word_model: str = "hey_jarvis"
+    wake_word_threshold: float = 0.5
+    whisper_model: str = "base.en"
+    silence_seconds: float = 1.2
+    max_command_seconds: float = 15.0
+
+
 class LimitsConfig(BaseModel):
     max_agent_iterations: int = 10
     max_send_file_mb: int = 25
@@ -142,6 +155,7 @@ class AppConfig(BaseModel):
     allowlisted_folders: list[str] = Field(default_factory=list)
     allowlisted_programs: dict[str, str] = Field(default_factory=dict)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
+    voice: VoiceConfig = Field(default_factory=VoiceConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     @classmethod
