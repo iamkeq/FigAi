@@ -16,8 +16,13 @@ from figai.config import Config
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
 from figai.persistence.store import JsonStore
+from figai.tools.channels import resolve_channel_id_by_name
+from figai.update.announcement import build_startup_announcement
+from figai.update.github_info import find_merged_pr_for_commit, get_remote_owner_repo
 
 logger = get_logger("slack.bot")
+
+PENDING_ANNOUNCEMENT_KEY = "pending_startup_announcement"
 
 REACTION_WORKING = "eyes"
 REACTION_DONE = "white_check_mark"
@@ -79,22 +84,45 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
     app = App(token=config.settings.slack_bot_token)
     owner_channel = config.settings.allowed_slack_user_id
 
+    store = JsonStore(Path(config.app.state_path))
+    state = store.load()
+    channel_lister = build_channel_lister(app)
+
+    def _on_updated(_old_sha: str, new_sha: str) -> None:
+        """Called by the self-update tool right after a successful pull: works out
+        which PR the new code came from and leaves a marker for the next startup
+        to announce. A failed lookup just means no PR detail, never a failed update."""
+        pr = None
+        try:
+            owner_repo = get_remote_owner_repo()
+            if owner_repo:
+                pr = find_merged_pr_for_commit(*owner_repo, new_sha, token=config.settings.github_token)
+        except Exception:
+            logger.exception("Could not look up the PR for the updated commit")
+        current = store.load()
+        current[PENDING_ANNOUNCEMENT_KEY] = {"sha": new_sha, "pr": pr}
+        store.save(current)
+
     session = AgentSession(
         config,
         file_sender=build_file_sender(app, owner_channel),
         message_sender=build_message_sender(app),
-        channel_lister=build_channel_lister(app),
+        channel_lister=channel_lister,
+        on_updated=_on_updated,
     )
     router = SlackRouter(session=session, config=config, allowed_user_id=owner_channel)
 
-    store = JsonStore(Path(config.app.state_path))
-    state = store.load()
     router.restore_state(state.get("slack", {}))
     session.reminder_scheduler.restore(state.get("reminders", []))
 
     def _save_state() -> None:
+        # Merge rather than overwrite, so a pending update announcement left by
+        # _on_updated survives the router's own save at the end of the same turn.
         try:
-            store.save({"slack": router.to_state(), "reminders": session.reminder_scheduler.to_state()})
+            current = store.load()
+            current["slack"] = router.to_state()
+            current["reminders"] = session.reminder_scheduler.to_state()
+            store.save(current)
         except Exception:
             logger.exception("Failed to persist state to %s", store.path)
 
@@ -140,11 +168,35 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         on_start, on_done = _reaction_hooks(event.get("channel", ""), event.get("ts", ""))
         _dispatch(router.handle_app_mention(event, on_start=on_start, on_done=on_done), say)
 
+    pending = state.get(PENDING_ANNOUNCEMENT_KEY)
+    announcement = build_startup_announcement(pending)
+
+    announce_channel = owner_channel
     try:
-        app.client.chat_postMessage(channel=owner_channel, text="Fig is online.")
-        logger.info("Posted startup message to Slack")
+        resolved = resolve_channel_id_by_name(channel_lister, config.app.startup_announcement_channel)
+        if resolved:
+            announce_channel = resolved
+        else:
+            logger.warning(
+                "Channel '%s' not found; announcing in your DM instead", config.app.startup_announcement_channel
+            )
     except Exception:
-        logger.exception("Failed to post startup message to Slack")
+        logger.exception("Could not resolve the announcement channel; announcing in your DM instead")
+
+    posted = False
+    for target in dict.fromkeys([announce_channel, owner_channel]):
+        try:
+            app.client.chat_postMessage(channel=target, text=announcement)
+            logger.info("Posted startup message to %s", target)
+            posted = True
+            break
+        except Exception:
+            logger.exception("Failed to post startup message to %s", target)
+
+    if posted and pending:
+        current = store.load()
+        current.pop(PENDING_ANNOUNCEMENT_KEY, None)
+        store.save(current)
 
     logger.info("Connecting to Slack via Socket Mode")
     SocketModeHandler(app, config.settings.slack_app_token).start()

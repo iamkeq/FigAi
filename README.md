@@ -129,6 +129,15 @@ pulling from GitHub, reinstalling, and restarting (`propose_update_fig` /
 `resolve_update_fig`), and runs only after you explicitly confirm in a later
 message.
 
+Whenever Fig starts, it announces "Fig is back online." in the Slack channel
+named by `startup_announcement_channel` in `config.yaml` (default `general`;
+falls back to your DM if that channel isn't found or Fig isn't in it). If the
+restart followed an "update yourself", the message also names the PR that was
+applied and its label -- e.g. "Fig is back online after a code update: PR #8
+(label: enhancement)." That lookup uses GitHub's API; for a private repo, set
+`GITHUB_TOKEN` in `.env` (read-only is enough), otherwise the message just
+says a code update happened.
+
 ## Using Fig
 
 - Slack: DM the bot. `!status` reports uptime/model/last error, `!restart`

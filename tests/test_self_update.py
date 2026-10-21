@@ -94,3 +94,56 @@ def test_resolve_cannot_reuse_the_same_token_twice() -> None:
     second_result = json.loads(registry.execute("resolve_update_fig", json.dumps({"token": propose["token"]})))
 
     assert "error" in second_result
+
+
+# -- on_updated / sha tracking ------------------------------------------------
+
+
+def make_registry_with_shas(shas: list[str], on_updated):
+    timers: list[FakeTimer] = []
+    sha_iter = iter(shas)
+
+    registry = ToolRegistry()
+    register_self_update_tools(
+        registry,
+        ConfirmationStore(),
+        runner=lambda cmd, **kwargs: None,
+        restart=lambda: None,
+        timer_factory=lambda delay, cb: timers.append(FakeTimer(cb)) or timers[-1],
+        get_sha=lambda: next(sha_iter),
+        on_updated=on_updated,
+    )
+    return registry, timers
+
+
+def test_on_updated_called_with_old_and_new_sha_when_code_changed() -> None:
+    calls: list[tuple[str, str]] = []
+    registry, _ = make_registry_with_shas(["old111", "new222"], lambda old, new: calls.append((old, new)))
+    propose = json.loads(registry.execute("propose_update_fig", "{}"))
+
+    registry.execute("resolve_update_fig", json.dumps({"token": propose["token"]}))
+
+    assert calls == [("old111", "new222")]
+
+
+def test_on_updated_not_called_when_already_up_to_date() -> None:
+    calls: list[tuple[str, str]] = []
+    registry, _ = make_registry_with_shas(["same", "same"], lambda old, new: calls.append((old, new)))
+    propose = json.loads(registry.execute("propose_update_fig", "{}"))
+
+    registry.execute("resolve_update_fig", json.dumps({"token": propose["token"]}))
+
+    assert calls == []
+
+
+def test_restart_still_scheduled_when_on_updated_raises() -> None:
+    def boom(old: str, new: str) -> None:
+        raise RuntimeError("lookup failed")
+
+    registry, timers = make_registry_with_shas(["old", "new"], boom)
+    propose = json.loads(registry.execute("propose_update_fig", "{}"))
+
+    result = json.loads(registry.execute("resolve_update_fig", json.dumps({"token": propose["token"]})))
+
+    assert result["status"] == "updated"
+    assert len(timers) == 1

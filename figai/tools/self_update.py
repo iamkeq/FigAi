@@ -14,6 +14,7 @@ from figai.agent.tools import Tool, ToolRegistry
 from figai.logging_setup import get_logger
 from figai.reminders.scheduler import TimerFactory, default_timer_factory
 from figai.tools.confirm import ConfirmationStore
+from figai.update.github_info import get_head_sha
 
 logger = get_logger("tools.self_update")
 ACTION_TYPE = "update_fig"
@@ -50,6 +51,8 @@ def register_self_update_tools(
     runner: Callable[..., Any] = subprocess.run,
     restart: Callable[[], None] = default_restart,
     timer_factory: TimerFactory = default_timer_factory,
+    get_sha: Callable[[], str] = get_head_sha,
+    on_updated: Callable[[str, str], None] | None = None,
 ) -> None:
     def _propose(_arguments: dict[str, Any]) -> str:
         preview = "Pull the latest code from GitHub, reinstall dependencies, and restart Fig."
@@ -84,9 +87,22 @@ def register_self_update_tools(
             return json.dumps({"error": str(exc)})
 
         try:
+            old_sha = get_sha()
+        except Exception:  # noqa: BLE001 - never block an update over a sha lookup failure
+            old_sha = None
+
+        try:
             pull_and_reinstall(runner)
         except UpdateError as exc:
             return json.dumps({"error": f"Update failed, still running the old code: {exc}"})
+
+        if on_updated is not None:
+            try:
+                new_sha = get_sha()
+                if new_sha and new_sha != old_sha:
+                    on_updated(old_sha or "", new_sha)
+            except Exception:  # noqa: BLE001 - the restart must still happen either way
+                logger.exception("Failed to record update details")
 
         logger.info("Update pulled successfully; restarting in %ds", RESTART_DELAY_SECONDS)
         # Delayed so the agent loop can finish this turn and the front-end can
