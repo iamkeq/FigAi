@@ -69,6 +69,7 @@ def build_tool_registry(
     reminder_scheduler: ReminderScheduler,
     conversation_context: ConversationContext,
     channel_lister: ChannelLister | None,
+    on_updated: Callable[[str, str], None] | None,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -99,7 +100,7 @@ def build_tool_registry(
 
     register_reminder_tools(registry, reminder_scheduler, conversation_context)
     register_list_channels_tool(registry, channel_lister)
-    register_self_update_tools(registry, confirmations)
+    register_self_update_tools(registry, confirmations, on_updated=on_updated)
 
     return registry
 
@@ -115,6 +116,7 @@ class AgentSession:
         file_sender: FileSender | None = None,
         message_sender: MessageSender | None = None,
         channel_lister: ChannelLister | None = None,
+        on_updated: Callable[[str, str], None] | None = None,
     ) -> None:
         self.config = config
         self.loader = SkillLoader(SKILLS_ROOT)
@@ -149,6 +151,7 @@ class AgentSession:
             self.reminder_scheduler,
             self.conversation_context,
             channel_lister,
+            on_updated,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())

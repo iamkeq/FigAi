@@ -105,6 +105,9 @@ class Settings(BaseModel):
     radarr: ServiceConnection | None = None
     sabnzbd: ServiceConnection | None = None
     obs: ObsConnection | None = None
+    # Optional: lets propose_update_fig look up which PR/labels a commit came
+    # from on a private repo. Not needed for a public repo; omit if unused.
+    github_token: str | None = None
 
     @classmethod
     def from_env(cls, env_path: Path = DEFAULT_ENV_PATH) -> "Settings":
@@ -135,6 +138,7 @@ class Settings(BaseModel):
                 radarr=ServiceConnection.from_env_pair("RADARR_URL", "RADARR_API_KEY"),
                 sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY"),
                 obs=ObsConnection.from_env(),
+                github_token=os.environ.get("GITHUB_TOKEN") or None,
             )
         except ValidationError as exc:
             raise ConfigError(f"Invalid .env configuration: {exc}") from exc
@@ -160,6 +164,9 @@ class AppConfig(BaseModel):
     # Where Fig persists lightweight runtime state (active Slack threads,
     # conversation histories, pending reminders) so it survives a restart.
     state_path: str = "data/figai_state.json"
+    # Slack channel (by name) Fig announces "back online" in at startup,
+    # including which PR was applied if it just updated itself.
+    startup_announcement_channel: str = "general"
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_CONFIG_PATH) -> "AppConfig":

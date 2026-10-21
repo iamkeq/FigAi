@@ -12,6 +12,14 @@ from figai.agent.tools import Tool, ToolRegistry
 ChannelLister = Callable[[], list[dict[str, str]]]  # [{"id": ..., "name": ...}, ...]
 
 
+def resolve_channel_id_by_name(list_channels: ChannelLister, name: str) -> str | None:
+    normalized = name.lstrip("#").lower()
+    for channel in list_channels():
+        if channel["name"].lower() == normalized:
+            return channel["id"]
+    return None
+
+
 def register_list_channels_tool(registry: ToolRegistry, list_channels: ChannelLister | None) -> None:
     def _list(_arguments: dict[str, Any]) -> str:
         if list_channels is None:

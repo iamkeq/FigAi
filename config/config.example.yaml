@@ -49,3 +49,7 @@ log_level: "INFO"
 # pending reminders so they survive a restart. Relative paths are resolved
 # from the working directory Fig is started in.
 state_path: "data/figai_state.json"
+
+# Slack channel (by name) Fig announces "back online" in at startup, including
+# the PR # and label if it just updated itself. Falls back to your DM if not found.
+startup_announcement_channel: "general"
