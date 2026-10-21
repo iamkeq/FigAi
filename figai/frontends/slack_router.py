@@ -10,7 +10,9 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
+
+Hook = Callable[[], None] | None
 
 from figai.agent.loop import Message
 from figai.config import Config
@@ -51,9 +53,14 @@ class SlackRouter:
     conversations: dict[str, list[Message]] = field(default_factory=dict)
     active_threads: set[tuple[str, str]] = field(default_factory=set)
 
-    def handle_event(self, event: dict[str, Any]) -> SlackReply | None:
+    def handle_event(self, event: dict[str, Any], on_start: Hook = None, on_done: Hook = None) -> SlackReply | None:
         """Entry point for a raw Slack `message` event: always for a DM, or for a
-        channel/group message inside a thread Fig is already engaged in."""
+        channel/group message inside a thread Fig is already engaged in.
+
+        `on_start`/`on_done` fire only once Fig has committed to actually
+        responding -- never for a message it's going to ignore -- so a
+        front-end can use them to show working/done feedback (e.g. a Slack
+        reaction) without ever leaving one stuck on an ignored message."""
         if not is_authorized_message(event, self.allowed_user_id):
             logger.info("Ignoring message from an unauthorized sender or a bot")
             return None
@@ -65,17 +72,17 @@ class SlackRouter:
         channel = event.get("channel", "unknown")
 
         if event.get("channel_type") == "im":
-            reply_text = self.handle_text(channel, text)
-            return SlackReply(reply_text) if reply_text is not None else None
+            return self._dispatch(channel, text, on_start, on_done)
 
         thread_ts = event.get("thread_ts")
         if thread_ts is None or (channel, thread_ts) not in self.active_threads:
             return None  # ambient channel chatter Fig wasn't addressed in
 
-        reply_text = self.handle_text(f"{channel}:{thread_ts}", text)
-        return SlackReply(reply_text, thread_ts=thread_ts) if reply_text is not None else None
+        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, thread_ts=thread_ts)
 
-    def handle_app_mention(self, event: dict[str, Any]) -> SlackReply | None:
+    def handle_app_mention(
+        self, event: dict[str, Any], on_start: Hook = None, on_done: Hook = None
+    ) -> SlackReply | None:
         """Entry point for an `app_mention` event: the start of (or a top-level
         reply within) a channel conversation. Always replies in a thread."""
         if not is_authorized_message(event, self.allowed_user_id):
@@ -93,8 +100,17 @@ class SlackRouter:
         if not text:
             text = "(you mentioned me with no message)"
 
-        reply_text = self.handle_text(f"{channel}:{thread_ts}", text)
-        return SlackReply(reply_text, thread_ts=thread_ts) if reply_text is not None else None
+        return self._dispatch(f"{channel}:{thread_ts}", text, on_start, on_done, thread_ts=thread_ts)
+
+    def _dispatch(
+        self, conversation_key: str, text: str, on_start: Hook, on_done: Hook, thread_ts: str | None = None
+    ) -> SlackReply:
+        if on_start:
+            on_start()
+        reply_text = self.handle_text(conversation_key, text)
+        if on_done:
+            on_done()
+        return SlackReply(reply_text, thread_ts=thread_ts)
 
     def handle_text(self, conversation_key: str, text: str) -> str | None:
         if text == "!status":

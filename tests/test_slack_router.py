@@ -194,6 +194,71 @@ def test_app_mention_with_no_text_after_stripping_still_gets_a_reply(tmp_path: P
     assert reply is not None
 
 
+# -- on_start/on_done hooks (e.g. for Slack reactions) ------------------------
+
+
+def test_dm_fires_on_start_then_on_done_around_the_reply(tmp_path: Path) -> None:
+    router = make_router(tmp_path, reply="hello back")
+    calls: list[str] = []
+
+    router.handle_event(dm_event("hi"), on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done"))
+
+    assert calls == ["start", "done"]
+
+
+def test_ignored_dm_message_never_fires_hooks(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    calls: list[str] = []
+
+    router.handle_event(dm_event("   "), on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done"))
+
+    assert calls == []
+
+
+def test_ignored_unauthorized_dm_never_fires_hooks(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    calls: list[str] = []
+    event = dm_event("hi")
+    event["user"] = "U_OTHER"
+
+    router.handle_event(event, on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done"))
+
+    assert calls == []
+
+
+def test_ambient_channel_chatter_never_fires_hooks(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    calls: list[str] = []
+
+    router.handle_event(
+        channel_event("just chatting"), on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done")
+    )
+
+    assert calls == []
+
+
+def test_app_mention_fires_on_start_then_on_done(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    calls: list[str] = []
+
+    router.handle_app_mention(
+        mention_event("hey Fig", ts="100.1"),
+        on_start=lambda: calls.append("start"),
+        on_done=lambda: calls.append("done"),
+    )
+
+    assert calls == ["start", "done"]
+
+
+def test_hooks_fire_even_when_agent_loop_errors(tmp_path: Path) -> None:
+    router = make_router(tmp_path, raise_error=True)
+    calls: list[str] = []
+
+    router.handle_event(dm_event("hi"), on_start=lambda: calls.append("start"), on_done=lambda: calls.append("done"))
+
+    assert calls == ["start", "done"]
+
+
 # -- Commands (work the same keyed by any conversation id) --------------------
 
 

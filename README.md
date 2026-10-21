@@ -38,8 +38,9 @@ python -m venv .venv
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) -> **Create New App** -> **From an app manifest**.
 2. Paste the contents of [`slack-manifest.yaml`](slack-manifest.yaml). It requests
    `chat:write`, `im:history`, `im:write`, `files:write`, `app_mentions:read`,
-   `channels:history`, `groups:history`, subscribes to `message.im`,
-   `message.channels`, `message.groups`, and `app_mention`, and enables Socket Mode.
+   `channels:history`, `groups:history`, `reactions:write`, subscribes to
+   `message.im`, `message.channels`, `message.groups`, and `app_mention`, and
+   enables Socket Mode.
 3. Under **Socket Mode**, enable it and generate an app-level token with the
    `connections:write` scope -- this is your `SLACK_APP_TOKEN` (`xapp-...`).
 4. Under **OAuth & Permissions**, install the app to your workspace and copy the
@@ -108,7 +109,8 @@ restarts automatically (up to 5 times) if it crashes.
 
 - Slack: DM the bot. `!status` reports uptime/model/last error, `!restart`
   restarts the process, `!skills` lists skills, `!approve <name>` activates a
-  pending skill.
+  pending skill. Fig reacts :eyes: to your message as soon as it starts
+  working on it, and swaps that to :white_check_mark: once it's replied.
 - Terminal: `python -m figai --cli` gives you the same commands plus live tool-call
   and error output, and works even when Slack is down or misconfigured.
 - Confirmation flows: `ssh_run`, `send_file`, overwriting an existing vault note,
