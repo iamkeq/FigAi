@@ -124,7 +124,8 @@ class AgentSession:
                 logger.error("Reminder fired with no message-delivery channel configured: %s", reminder.message)
                 return
             try:
-                message_sender(reminder.channel, f":alarm_clock: Reminder: {reminder.message}", reminder.thread_ts)
+                mention = f"<@{config.settings.allowed_slack_user_id}> "
+                message_sender(reminder.channel, f"{mention}:alarm_clock: Reminder: {reminder.message}", reminder.thread_ts)
             except Exception:
                 logger.exception("Failed to deliver reminder %s", reminder.id)
 
