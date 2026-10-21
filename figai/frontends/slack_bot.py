@@ -25,6 +25,7 @@ logger = get_logger("slack.bot")
 
 PENDING_ANNOUNCEMENT_KEY = "pending_startup_announcement"
 LAST_ANNOUNCED_SHA_KEY = "last_announced_sha"
+MODEL_OVERRIDES_KEY = "model_overrides"
 
 REACTION_WORKING = "eyes"
 REACTION_DONE = "white_check_mark"
@@ -119,6 +120,19 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
             start_bridge_server(session.bridge_state, config.settings.browser_bridge_token, config.app.browser_bridge_port)
         except OSError:
             logger.exception("Browser bridge could not start (is port %d in use?)", config.app.browser_bridge_port)
+
+    def _save_model_overrides(overrides: dict[str, str]) -> None:
+        try:
+            current = store.load()
+            current[MODEL_OVERRIDES_KEY] = overrides
+            store.save(current)
+        except Exception:
+            logger.exception("Failed to persist model overrides")
+
+    session.models.restore(state.get(MODEL_OVERRIDES_KEY, {}))
+    session.models.on_change = _save_model_overrides
+    if state.get(MODEL_OVERRIDES_KEY):
+        logger.info("Restored model overrides: %s", session.models.describe())
 
     router.restore_state(state.get("slack", {}))
     session.reminder_scheduler.restore(state.get("reminders", []))

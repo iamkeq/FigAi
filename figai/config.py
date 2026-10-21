@@ -91,6 +91,10 @@ class LimitsConfig(BaseModel):
 class ModelsConfig(BaseModel):
     default_chat: str
     vision: str
+    # Optional paid model used only to summarize email. When set, Fig's raw email
+    # tools are replaced by summarize_emails, so the main chat model never sees
+    # email text, and requests are routed only to providers that don't collect prompts.
+    email: str | None = None
 
 
 class Settings(BaseModel):

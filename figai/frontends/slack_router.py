@@ -144,6 +144,8 @@ class SlackRouter:
             return self.approve_skill(text.removeprefix("!approve ").strip())
         if text == "!restart":
             return RESTART_SENTINEL
+        if text == "!model" or text.startswith("!model "):
+            return self.model_command(text.removeprefix("!model").strip())
 
         conversation = self.conversations.setdefault(conversation_key, [])
         conversation.append({"role": "user", "content": text})
@@ -157,6 +159,24 @@ class SlackRouter:
 
         conversation.append({"role": "assistant", "content": reply})
         return reply
+
+    def model_command(self, argument: str) -> str:
+        """`!model` shows the models, `!model reset` restores the default chat
+        model, `!model <id>` switches it. Deterministic (no model involved), so it
+        still works when the current chat model is the problem."""
+        from figai.tools.models import ModelError
+
+        manager = getattr(self.session, "models", None)
+        if manager is None:
+            return "Model switching isn't available."
+        try:
+            if not argument:
+                return manager.describe()
+            if argument == "reset":
+                return manager.reset("chat")
+            return manager.set("chat", argument)
+        except ModelError as exc:
+            return str(exc)
 
     def status_text(self) -> str:
         uptime_minutes = (time.monotonic() - self.start_time) / 60

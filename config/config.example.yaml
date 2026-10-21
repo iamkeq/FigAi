@@ -3,6 +3,11 @@
 models:
   default_chat: "openai/gpt-5.6-luna"
   vision: "google/gemini-3.1-flash-lite-image"
+  # Optional paid model used ONLY to summarize email. When set, the chat model never sees
+  # your mail and requests go only to providers that don't collect prompts. Must not be a
+  # :free model. Cheap and good: anthropic/claude-haiku-5.5. You can also change any model
+  # from chat ("switch to ...", or the !model command).
+  # email: "anthropic/claude-haiku-5.5"
 
 vault:
   # Must match an SSH_HOST_<alias> in .env.
