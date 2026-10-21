@@ -43,6 +43,24 @@ class ServiceConnection(BaseModel):
         return cls(url=url, api_key=api_key)
 
 
+class ObsConnection(BaseModel):
+    host: str
+    port: int = 4455
+    password: str | None = None
+
+    @classmethod
+    def from_env(cls) -> "ObsConnection | None":
+        host = os.environ.get("OBS_WS_HOST")
+        if not host:
+            return None
+        port_raw = os.environ.get("OBS_WS_PORT", "4455")
+        try:
+            port = int(port_raw)
+        except ValueError:
+            raise ConfigError(f"OBS_WS_PORT must be a number, got: {port_raw!r}") from None
+        return cls(host=host, port=port, password=os.environ.get("OBS_WS_PASSWORD") or None)
+
+
 class VaultConfig(BaseModel):
     ssh_host_alias: str
     remote_path: str
@@ -73,6 +91,7 @@ class Settings(BaseModel):
     sonarr: ServiceConnection | None = None
     radarr: ServiceConnection | None = None
     sabnzbd: ServiceConnection | None = None
+    obs: ObsConnection | None = None
 
     @classmethod
     def from_env(cls, env_path: Path = DEFAULT_ENV_PATH) -> "Settings":
@@ -102,6 +121,7 @@ class Settings(BaseModel):
                 sonarr=ServiceConnection.from_env_pair("SONARR_URL", "SONARR_API_KEY"),
                 radarr=ServiceConnection.from_env_pair("RADARR_URL", "RADARR_API_KEY"),
                 sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY"),
+                obs=ObsConnection.from_env(),
             )
         except ValidationError as exc:
             raise ConfigError(f"Invalid .env configuration: {exc}") from exc

@@ -9,10 +9,11 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 
 - `figai/agent/` -- the model-agnostic agent loop, OpenRouter client, tool registry, and system prompt.
 - `figai/frontends/` -- thin interfaces into that same core: `cli.py` (terminal), `slack_bot.py` / `slack_router.py` (Slack), `tray.py` (system tray), `service.py` (background entry point).
-- `figai/tools/` -- core Phase 1 tools: screenshots, system info, launching allowlisted programs, opening URLs, file search/send, and the shared confirmation primitive.
+- `figai/tools/` -- core tools: screenshots, system/battery/network info, launching allowlisted programs, opening URLs, file search/send, clipboard, active window, desktop notifications, media-key control, and the shared confirmation primitive.
 - `figai/ssh/` -- key-based SSH: `ssh_run`, and the remote/local Obsidian vault backends behind `memory_read/write/search`.
+- `figai/obs/` -- OBS Studio control over its WebSocket server (recording/streaming/scenes).
 - `figai/skills_system/` -- the skill loader: discovers `skills/*/SKILL.md`, loads full instructions lazily, and keeps `skills/_pending/` inert until you `!approve` it.
-- `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export).
+- `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export), `obs` (recording/streaming/scenes).
 - `figai/scheduler/`, `figai/email/`, `figai/browser_bridge/` -- interface stubs for later phases (not built yet).
 
 ## Setup
@@ -35,13 +36,17 @@ python -m venv .venv
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) -> **Create New App** -> **From an app manifest**.
 2. Paste the contents of [`slack-manifest.yaml`](slack-manifest.yaml). It requests
-   `chat:write`, `im:history`, `im:write`, `files:write`, subscribes to `message.im`,
-   and enables Socket Mode.
+   `chat:write`, `im:history`, `im:write`, `files:write`, `app_mentions:read`,
+   `channels:history`, `groups:history`, subscribes to `message.im`,
+   `message.channels`, `message.groups`, and `app_mention`, and enables Socket Mode.
 3. Under **Socket Mode**, enable it and generate an app-level token with the
    `connections:write` scope -- this is your `SLACK_APP_TOKEN` (`xapp-...`).
 4. Under **OAuth & Permissions**, install the app to your workspace and copy the
    **Bot User OAuth Token** -- this is your `SLACK_BOT_TOKEN` (`xoxb-...`).
-5. DM the app from Slack at least once so it has a DM channel with you.
+5. DM the app from Slack at least once so it has a DM channel with you. In a
+   channel, invite the app and @-mention it to start a thread -- Fig only
+   replies to DMs and to threads it was explicitly mentioned into; it ignores
+   ordinary channel chatter.
 6. Find your own Slack member ID (your profile -> **More** -> **Copy member ID**) --
    this is `ALLOWED_SLACK_USER_ID`. Fig replies to this user ID only; every other
    sender is silently ignored.
@@ -65,9 +70,14 @@ copy config\config.example.yaml config\config.yaml
 ```
 
 Edit `.env` (secrets: API keys, Slack tokens, your Slack user ID, SSH host
-connection details, optional Sonarr/Radarr/SABnzbd credentials) and
-`config\config.yaml` (models, the vault's remote/local paths, allowlisted
-programs and folders, limits). Neither file is ever logged.
+connection details, optional Sonarr/Radarr/SABnzbd credentials, optional OBS
+WebSocket host/port/password) and `config\config.yaml` (models, the vault's
+remote/local paths, allowlisted programs and folders, limits). Neither file is
+ever logged.
+
+A few tools (`active_window`, `media_key`) only have a real implementation on
+Windows -- Fig's deployment target -- and return a clear "not supported"
+error on any other OS rather than faking a value.
 
 If the vault's remote SSH host is unreachable, Fig automatically falls back to a
 fully independent local vault at `vault.local_path` -- the two are never merged,

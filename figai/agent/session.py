@@ -15,19 +15,25 @@ from figai.agent.tools import ToolRegistry
 from figai.brain_map.tools import register_brain_map_tool
 from figai.config import Config
 from figai.media.tools import register_media_tools
+from figai.obs.client import build_client_factory as build_obs_client_factory
+from figai.obs.tools import register_obs_tools
 from figai.skills_system.core_tools import register_skill_management_tools
 from figai.skills_system.loader import SkillLoader
 from figai.ssh.local_vault import LocalVaultBackend
 from figai.ssh.memory import load_index_note, register_memory_tools
 from figai.ssh.remote_vault import RemoteVaultBackend
 from figai.ssh.run import register_ssh_run_tools
+from figai.tools.clipboard import register_clipboard_tools
 from figai.tools.confirm import ConfirmationStore
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
+from figai.tools.media_keys import register_media_key_tool
+from figai.tools.notifications import register_notification_tool
 from figai.tools.programs import register_open_program_tool
 from figai.tools.screenshot import register_screenshot_tool
 from figai.tools.system_info import register_system_info_tools
 from figai.tools.time_tool import register_time_tool
 from figai.tools.web import register_open_url_tool
+from figai.tools.window import register_active_window_tool
 
 SKILLS_ROOT = Path("skills")
 
@@ -69,6 +75,12 @@ def build_tool_registry(
 
     register_media_tools(registry, config, confirmations)
     register_brain_map_tool(registry, remote_factory, local_vault, file_sender)
+
+    register_clipboard_tools(registry)
+    register_active_window_tool(registry)
+    register_notification_tool(registry)
+    register_media_key_tool(registry)
+    register_obs_tools(registry, build_obs_client_factory(config))
 
     return registry
 

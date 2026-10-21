@@ -60,6 +60,30 @@ def _system_status(_arguments: dict[str, Any]) -> str:
     )
 
 
+def _battery_status(_arguments: dict[str, Any]) -> str:
+    battery = psutil.sensors_battery()
+    if battery is None:
+        return json.dumps({"available": False, "note": "No battery sensor (likely a desktop)."})
+    return json.dumps(
+        {
+            "available": True,
+            "percent": battery.percent,
+            "plugged_in": battery.power_plugged,
+            "seconds_left": battery.secsleft if isinstance(battery.secsleft, int) else None,
+        }
+    )
+
+
+def _network_status(_arguments: dict[str, Any]) -> str:
+    stats = psutil.net_if_stats()
+    addrs = psutil.net_if_addrs()
+    interfaces = []
+    for name, stat in stats.items():
+        ips = [addr.address for addr in addrs.get(name, []) if addr.family.name in ("AF_INET", "AF_INET6")]
+        interfaces.append({"name": name, "is_up": stat.isup, "speed_mbps": stat.speed, "addresses": ips})
+    return json.dumps({"interfaces": interfaces})
+
+
 def register_system_info_tools(registry: ToolRegistry) -> None:
     registry.register(
         Tool(
@@ -81,5 +105,21 @@ def register_system_info_tools(registry: ToolRegistry) -> None:
             description="Get overall machine status: CPU, RAM, disk, uptime, and network usage.",
             parameters={"type": "object", "properties": {}},
             handler=_system_status,
+        )
+    )
+    registry.register(
+        Tool(
+            name="battery_status",
+            description="Get battery charge percentage and whether the machine is plugged in.",
+            parameters={"type": "object", "properties": {}},
+            handler=_battery_status,
+        )
+    )
+    registry.register(
+        Tool(
+            name="network_status",
+            description="List network interfaces with up/down state, link speed, and IP addresses.",
+            parameters={"type": "object", "properties": {}},
+            handler=_network_status,
         )
     )

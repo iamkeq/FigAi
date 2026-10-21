@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in list(os.environ):
-        if key.startswith(("OPENROUTER_", "SLACK_", "ALLOWED_SLACK_", "SSH_HOST_")):
+        if key.startswith(("OPENROUTER_", "SLACK_", "ALLOWED_SLACK_", "SSH_HOST_", "OBS_WS_")):
             monkeypatch.delenv(key, raising=False)
 
 

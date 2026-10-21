@@ -26,6 +26,15 @@ def run_service(config: Config) -> None:
         router = state.get("router")
         return router.status_text() if router else "Fig is starting..."
 
-    threading.Thread(target=run_tray_icon, kwargs={"status_provider": _status_provider}, daemon=True).start()
+    def _run_tray_icon_safely() -> None:
+        try:
+            run_tray_icon(status_provider=_status_provider)
+        except Exception:
+            # macOS's AppKit backend requires the main thread; Windows's win32
+            # backend (the real deployment target) has no such restriction. Either
+            # way, a tray failure must never take down the Slack bot.
+            logger.exception("Tray icon failed to start -- continuing without it")
+
+    threading.Thread(target=_run_tray_icon_safely, daemon=True).start()
 
     run_slack_bot(config, on_ready=_on_ready)

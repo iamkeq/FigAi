@@ -13,7 +13,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from figai.agent.session import AgentSession
 from figai.config import Config
-from figai.frontends.slack_router import RESTART_SENTINEL, SlackRouter
+from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
 
 logger = get_logger("slack.bot")
@@ -36,21 +36,32 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
     if on_ready is not None:
         on_ready(router)
 
-    @app.event("message")
-    def handle_message(event: dict[str, Any], say: Any) -> None:
-        reply = router.handle_event(event)
+    def _dispatch(reply: SlackReply | None, say: Any) -> None:
         if reply is None:
             return
-        if reply == RESTART_SENTINEL:
-            say("Restarting...")
+        if reply.text == RESTART_SENTINEL:
+            say(text="Restarting...", thread_ts=reply.thread_ts) if reply.thread_ts else say("Restarting...")
             logger.info("Restart requested via Slack")
             os.execv(sys.executable, [sys.executable, "-m", "figai"])
             return
-        say(reply)
+        if reply.thread_ts:
+            say(text=reply.text, thread_ts=reply.thread_ts)
+        else:
+            say(reply.text)
+
+    @app.event("message")
+    def handle_message(event: dict[str, Any], say: Any) -> None:
+        _dispatch(router.handle_event(event), say)
+
+    @app.event("app_mention")
+    def handle_app_mention(event: dict[str, Any], say: Any) -> None:
+        _dispatch(router.handle_app_mention(event), say)
 
     try:
         app.client.chat_postMessage(channel=owner_channel, text="Fig is online.")
+        logger.info("Posted startup message to Slack")
     except Exception:
         logger.exception("Failed to post startup message to Slack")
 
+    logger.info("Connecting to Slack via Socket Mode")
     SocketModeHandler(app, config.settings.slack_app_token).start()

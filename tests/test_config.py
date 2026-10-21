@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from figai.config import AppConfig, ConfigError, Settings
+from figai.config import AppConfig, ConfigError, ObsConnection, Settings
 
 
 def write_env(path: Path, **overrides: str) -> Path:
@@ -57,3 +57,35 @@ def test_app_config_from_yaml(valid_config_yaml: Path) -> None:
 def test_app_config_missing_file_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         AppConfig.from_yaml(tmp_path / "nope.yaml")
+
+
+def test_obs_connection_absent_when_host_unset(clean_env: None) -> None:
+    assert ObsConnection.from_env() is None
+
+
+def test_obs_connection_parses_host_port_password(monkeypatch: pytest.MonkeyPatch, clean_env: None) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+    monkeypatch.setenv("OBS_WS_PORT", "4456")
+    monkeypatch.setenv("OBS_WS_PASSWORD", "secret")
+
+    conn = ObsConnection.from_env()
+
+    assert conn == ObsConnection(host="127.0.0.1", port=4456, password="secret")
+
+
+def test_obs_connection_defaults_port_and_allows_no_password(
+    monkeypatch: pytest.MonkeyPatch, clean_env: None
+) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+
+    conn = ObsConnection.from_env()
+
+    assert conn == ObsConnection(host="127.0.0.1", port=4455, password=None)
+
+
+def test_obs_connection_invalid_port_fails_closed(monkeypatch: pytest.MonkeyPatch, clean_env: None) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+    monkeypatch.setenv("OBS_WS_PORT", "not-a-number")
+
+    with pytest.raises(ConfigError):
+        ObsConnection.from_env()
