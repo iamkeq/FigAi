@@ -99,3 +99,39 @@ def test_announcement_with_pr_and_no_labels() -> None:
 def test_announcement_update_without_resolvable_pr() -> None:
     text = build_startup_announcement({"sha": "abc", "pr": None})
     assert "code update" in text and "PR #" not in text
+
+
+# -- decide_pending_announcement ------------------------------------------------
+
+
+def test_decide_prefers_explicit_marker() -> None:
+    from figai.update.announcement import decide_pending_announcement
+
+    marker = {"sha": "abc", "pr": {"number": 1, "labels": []}}
+    assert decide_pending_announcement(marker, "new", "old", lambda s: None) == marker
+
+
+def test_decide_detects_change_by_comparing_commits() -> None:
+    from figai.update.announcement import decide_pending_announcement
+
+    result = decide_pending_announcement(None, "new", "old", lambda sha: {"number": 8, "labels": ["enhancement"]})
+
+    assert result == {"sha": "new", "pr": {"number": 8, "labels": ["enhancement"]}}
+
+
+def test_decide_is_none_when_commit_unchanged() -> None:
+    from figai.update.announcement import decide_pending_announcement
+
+    assert decide_pending_announcement(None, "same", "same", lambda s: {"number": 1, "labels": []}) is None
+
+
+def test_decide_is_none_on_first_run_with_nothing_to_compare() -> None:
+    from figai.update.announcement import decide_pending_announcement
+
+    assert decide_pending_announcement(None, "new", None, lambda s: {"number": 1, "labels": []}) is None
+
+
+def test_decide_is_none_when_head_unknown() -> None:
+    from figai.update.announcement import decide_pending_announcement
+
+    assert decide_pending_announcement(None, None, "old", lambda s: None) is None
