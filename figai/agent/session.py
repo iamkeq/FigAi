@@ -11,6 +11,8 @@ from figai.agent.loop import AgentLoop
 from figai.agent.prompt import build_system_prompt
 from figai.agent.tools import ToolRegistry
 from figai.brain_map.tools import register_brain_map_tool
+from figai.browser_bridge.state import BridgeState
+from figai.browser_bridge.tools import register_browser_bridge_tools
 from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.media.tools import register_media_tools
@@ -71,6 +73,7 @@ def build_tool_registry(
     conversation_context: ConversationContext,
     channel_lister: ChannelLister | None,
     on_updated: Callable[[str, str], None] | None,
+    bridge_state: BridgeState,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -103,6 +106,7 @@ def build_tool_registry(
     register_list_channels_tool(registry, channel_lister)
     register_self_update_tools(registry, confirmations, on_updated=on_updated)
     register_version_info_tool(registry, config)
+    register_browser_bridge_tools(registry, bridge_state, enabled=bool(config.settings.browser_bridge_token))
 
     return registry
 
@@ -124,6 +128,7 @@ class AgentSession:
         self.loader = SkillLoader(SKILLS_ROOT)
         self.confirmations = ConfirmationStore(timeout_seconds=config.app.limits.confirmation_timeout_seconds)
         self.conversation_context = ConversationContext()
+        self.bridge_state = BridgeState()
 
         def _on_reminder_fire(reminder: Reminder) -> None:
             if message_sender is None:
@@ -154,6 +159,7 @@ class AgentSession:
             self.conversation_context,
             channel_lister,
             on_updated,
+            self.bridge_state,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())

@@ -5,13 +5,13 @@ send the model hunting through unrelated tools."""
 from __future__ import annotations
 
 import json
-import subprocess
 from typing import Any, Callable
 
 import requests
 
 from figai.agent.tools import Tool, ToolRegistry
 from figai.config import Config
+from figai.process_utils import quiet_run
 from figai.update.github_info import find_merged_pr_for_commit, get_remote_owner_repo
 
 RUNNER_TIMEOUT_SECONDS = 15
@@ -23,7 +23,7 @@ def _git(runner: Callable[..., Any], *args: str) -> str:
 
 
 def register_version_info_tool(
-    registry: ToolRegistry, config: Config, runner: Callable[..., Any] = subprocess.run, http: Any = requests
+    registry: ToolRegistry, config: Config, runner: Callable[..., Any] = quiet_run, http: Any = requests
 ) -> None:
     def _version(_arguments: dict[str, Any]) -> str:
         try:

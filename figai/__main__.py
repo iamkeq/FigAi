@@ -7,6 +7,7 @@ import sys
 
 from figai.config import Config, ConfigError
 from figai.logging_setup import get_logger, setup_logging
+from figai.process_utils import acquire_single_instance, ensure_std_streams, install_excepthooks
 
 
 def main() -> int:
@@ -15,6 +16,10 @@ def main() -> int:
         "--cli", action="store_true", help="Run an interactive terminal session instead of the background service."
     )
     args = parser.parse_args()
+
+    # Under pythonw.exe (no console) these make stray output and crashes land in logs/.
+    ensure_std_streams()
+    install_excepthooks()
 
     try:
         config = Config.load()
@@ -25,6 +30,10 @@ def main() -> int:
     setup_logging(config.app.log_level)
     logger = get_logger("main")
     logger.info("Fig starting (cli=%s)", args.cli)
+
+    if not args.cli and not acquire_single_instance():
+        logger.error("Another Fig is already running -- exiting so Slack doesn't get duplicate replies")
+        return 0
 
     if args.cli:
         from figai.frontends.cli import run_cli

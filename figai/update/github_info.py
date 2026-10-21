@@ -5,10 +5,11 @@ after it updates itself."""
 from __future__ import annotations
 
 import re
-import subprocess
 from typing import Any, Callable
 
 import requests
+
+from figai.process_utils import quiet_run
 
 GITHUB_API = "https://api.github.com"
 TIMEOUT_SECONDS = 10
@@ -19,14 +20,14 @@ Runner = Callable[..., Any]
 _REMOTE_URL_PATTERN = re.compile(r"github\.com[:/]([^/]+)/([^/.]+?)(?:\.git)?/?$")
 
 
-def get_head_sha(runner: Runner = subprocess.run, cwd: str = ".") -> str:
+def get_head_sha(runner: Runner = quiet_run, cwd: str = ".") -> str:
     result = runner(
         ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True, cwd=cwd, timeout=RUNNER_TIMEOUT_SECONDS
     )
     return result.stdout.strip()
 
 
-def get_remote_owner_repo(runner: Runner = subprocess.run, cwd: str = ".") -> tuple[str, str] | None:
+def get_remote_owner_repo(runner: Runner = quiet_run, cwd: str = ".") -> tuple[str, str] | None:
     result = runner(
         ["git", "config", "--get", "remote.origin.url"],
         check=True,

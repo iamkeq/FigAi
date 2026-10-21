@@ -122,3 +122,15 @@ voice:
     assert config.voice.enabled is True
     assert config.voice.wake_word_model == "alexa"
     assert config.voice.wake_word_threshold == 0.7
+
+
+def test_browser_bridge_token_must_be_long_enough(tmp_path: Path, clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    env_path = write_env(tmp_path)
+    monkeypatch.setenv("BROWSER_BRIDGE_TOKEN", "short")
+    with pytest.raises(ConfigError):
+        Settings.from_env(env_path)
+
+
+def test_browser_bridge_token_is_read_when_valid(tmp_path: Path, clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BROWSER_BRIDGE_TOKEN", "x" * 24)
+    assert Settings.from_env(write_env(tmp_path)).browser_bridge_token == "x" * 24

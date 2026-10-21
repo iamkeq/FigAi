@@ -53,3 +53,7 @@ state_path: "data/figai_state.json"
 # Slack channel (by name) Fig announces "back online" in at startup, including
 # the PR # and label if it just updated itself. Falls back to your DM if not found.
 startup_announcement_channel: "general"
+
+# Localhost port the Chrome tab-bridge extension talks to. Must match the Port
+# on the extension's options page.
+browser_bridge_port: 8765
