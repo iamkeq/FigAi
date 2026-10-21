@@ -17,12 +17,13 @@ from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRout
 from figai.logging_setup import get_logger
 from figai.persistence.store import JsonStore
 from figai.tools.channels import resolve_channel_id_by_name
-from figai.update.announcement import build_startup_announcement
-from figai.update.github_info import find_merged_pr_for_commit, get_remote_owner_repo
+from figai.update.announcement import build_startup_announcement, decide_pending_announcement
+from figai.update.github_info import find_merged_pr_for_commit, get_head_sha, get_remote_owner_repo
 
 logger = get_logger("slack.bot")
 
 PENDING_ANNOUNCEMENT_KEY = "pending_startup_announcement"
+LAST_ANNOUNCED_SHA_KEY = "last_announced_sha"
 
 REACTION_WORKING = "eyes"
 REACTION_DONE = "white_check_mark"
@@ -168,7 +169,22 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         on_start, on_done = _reaction_hooks(event.get("channel", ""), event.get("ts", ""))
         _dispatch(router.handle_app_mention(event, on_start=on_start, on_done=on_done), say)
 
-    pending = state.get(PENDING_ANNOUNCEMENT_KEY)
+    def _lookup_pr(sha: str):
+        try:
+            owner_repo = get_remote_owner_repo()
+            return find_merged_pr_for_commit(*owner_repo, sha, token=config.settings.github_token) if owner_repo else None
+        except Exception:
+            logger.exception("Could not look up the PR for %s", sha)
+            return None
+
+    try:
+        head_sha: str | None = get_head_sha()
+    except Exception:
+        head_sha = None
+
+    pending = decide_pending_announcement(
+        state.get(PENDING_ANNOUNCEMENT_KEY), head_sha, state.get(LAST_ANNOUNCED_SHA_KEY), _lookup_pr
+    )
     announcement = build_startup_announcement(pending)
 
     announce_channel = owner_channel
@@ -193,9 +209,11 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         except Exception:
             logger.exception("Failed to post startup message to %s", target)
 
-    if posted and pending:
+    if posted:
         current = store.load()
         current.pop(PENDING_ANNOUNCEMENT_KEY, None)
+        if head_sha:
+            current[LAST_ANNOUNCED_SHA_KEY] = head_sha
         store.save(current)
 
     logger.info("Connecting to Slack via Socket Mode")
