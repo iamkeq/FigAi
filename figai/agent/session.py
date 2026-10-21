@@ -32,6 +32,7 @@ from figai.tools.programs import register_open_program_tool
 from figai.tools.screenshot import register_screenshot_tool
 from figai.tools.system_info import register_system_info_tools
 from figai.tools.time_tool import register_time_tool
+from figai.tools.usage import register_usage_tool
 from figai.tools.web import register_open_url_tool
 from figai.tools.window import register_active_window_tool
 
@@ -67,6 +68,7 @@ def build_tool_registry(
     register_memory_tools(registry, config, remote_factory, local_vault, confirmations)
 
     register_system_info_tools(registry)
+    register_usage_tool(registry, config)
     register_open_program_tool(registry, config)
     register_open_url_tool(registry)
     register_search_files_tool(registry, config)
