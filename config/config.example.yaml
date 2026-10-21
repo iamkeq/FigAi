@@ -44,3 +44,8 @@ voice:
   max_command_seconds: 15
 
 log_level: "INFO"
+
+# Where Fig persists active Slack threads, conversation histories, and
+# pending reminders so they survive a restart. Relative paths are resolved
+# from the working directory Fig is started in.
+state_path: "data/figai_state.json"

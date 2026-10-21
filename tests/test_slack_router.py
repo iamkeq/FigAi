@@ -320,3 +320,60 @@ def test_approve_command_activates_pending_skill(tmp_path: Path) -> None:
 
     assert "Approved" in reply
     assert "helper" in [s.name for s in router.session.loader.discover()]
+
+
+# -- persistence (to_state/restore_state/on_change) ----------------------------
+
+
+def test_to_state_serializes_active_threads_and_conversations(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    router.handle_app_mention(mention_event("hey Fig", ts="100.1"))
+
+    state = router.to_state()
+
+    assert state["active_threads"] == [["C1", "100.1"]]
+    assert state["conversations"]["C1:100.1"][0]["content"] == "hey Fig"
+
+
+def test_restore_state_repopulates_active_threads_and_conversations(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+
+    router.restore_state(
+        {
+            "active_threads": [["C1", "100.1"]],
+            "conversations": {"C1:100.1": [{"role": "user", "content": "earlier message"}]},
+        }
+    )
+
+    assert ("C1", "100.1") in router.active_threads
+    assert router.conversations["C1:100.1"][0]["content"] == "earlier message"
+
+
+def test_restored_thread_accepts_a_follow_up_without_re_mentioning(tmp_path: Path) -> None:
+    router = make_router(tmp_path, reply="continuing")
+    router.restore_state({"active_threads": [["C1", "100.1"]], "conversations": {}})
+
+    reply = router.handle_event(channel_event("follow-up", thread_ts="100.1"))
+
+    assert reply is not None
+    assert reply.text == "continuing"
+
+
+def test_on_change_fires_after_a_dispatched_reply(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    changes: list[str] = []
+    router.on_change = lambda: changes.append("changed")
+
+    router.handle_event(dm_event("hi"))
+
+    assert changes == ["changed"]
+
+
+def test_on_change_does_not_fire_for_an_ignored_message(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    changes: list[str] = []
+    router.on_change = lambda: changes.append("changed")
+
+    router.handle_event(channel_event("ambient chatter"))
+
+    assert changes == []

@@ -25,8 +25,10 @@ from figai.ssh.local_vault import LocalVaultBackend
 from figai.ssh.memory import load_index_note, register_memory_tools
 from figai.ssh.remote_vault import RemoteVaultBackend
 from figai.ssh.run import register_ssh_run_tools
+from figai.tools.channels import ChannelLister, register_list_channels_tool
 from figai.tools.clipboard import register_clipboard_tools
 from figai.tools.confirm import ConfirmationStore
+from figai.tools.fetch_url import register_fetch_url_tool
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
 from figai.tools.media_keys import register_media_key_tool
 from figai.tools.notifications import register_notification_tool
@@ -36,6 +38,7 @@ from figai.tools.system_info import register_system_info_tools
 from figai.tools.time_tool import register_time_tool
 from figai.tools.usage import register_usage_tool
 from figai.tools.web import register_open_url_tool
+from figai.tools.web_search import register_web_search_tool
 from figai.tools.window import register_active_window_tool
 
 SKILLS_ROOT = Path("skills")
@@ -64,6 +67,7 @@ def build_tool_registry(
     file_sender: FileSender | None,
     reminder_scheduler: ReminderScheduler,
     conversation_context: ConversationContext,
+    channel_lister: ChannelLister | None,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -75,6 +79,8 @@ def build_tool_registry(
 
     register_system_info_tools(registry)
     register_usage_tool(registry, config)
+    register_web_search_tool(registry, config)
+    register_fetch_url_tool(registry)
     register_open_program_tool(registry, config)
     register_open_url_tool(registry)
     register_search_files_tool(registry, config)
@@ -91,6 +97,7 @@ def build_tool_registry(
     register_obs_tools(registry, build_obs_client_factory(config))
 
     register_reminder_tools(registry, reminder_scheduler, conversation_context)
+    register_list_channels_tool(registry, channel_lister)
 
     return registry
 
@@ -101,7 +108,11 @@ class AgentSession:
     (for front-ends that need to recognize a user's confirming reply)."""
 
     def __init__(
-        self, config: Config, file_sender: FileSender | None = None, message_sender: MessageSender | None = None
+        self,
+        config: Config,
+        file_sender: FileSender | None = None,
+        message_sender: MessageSender | None = None,
+        channel_lister: ChannelLister | None = None,
     ) -> None:
         self.config = config
         self.loader = SkillLoader(SKILLS_ROOT)
@@ -113,7 +124,8 @@ class AgentSession:
                 logger.error("Reminder fired with no message-delivery channel configured: %s", reminder.message)
                 return
             try:
-                message_sender(reminder.channel, f":alarm_clock: Reminder: {reminder.message}", reminder.thread_ts)
+                mention = f"<@{config.settings.allowed_slack_user_id}> "
+                message_sender(reminder.channel, f"{mention}:alarm_clock: Reminder: {reminder.message}", reminder.thread_ts)
             except Exception:
                 logger.exception("Failed to deliver reminder %s", reminder.id)
 
@@ -134,6 +146,7 @@ class AgentSession:
             file_sender,
             self.reminder_scheduler,
             self.conversation_context,
+            channel_lister,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())

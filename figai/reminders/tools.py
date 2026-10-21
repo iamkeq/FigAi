@@ -40,8 +40,9 @@ def register_reminder_tools(registry: ToolRegistry, scheduler: ReminderScheduler
             name="set_reminder",
             description=(
                 "Schedule a one-off reminder message to be sent after a delay. Defaults to notifying the "
-                "current conversation; pass 'channel' to send it somewhere else instead. Reminders are lost "
-                "if Fig restarts before they fire."
+                "current conversation; pass 'channel' to send it somewhere else instead -- if the user names "
+                "a channel (e.g. 'general'), call list_channels first to resolve it to an ID before calling "
+                "this. Reminders are lost if Fig restarts before they fire."
             ),
             parameters={
                 "type": "object",
@@ -50,7 +51,10 @@ def register_reminder_tools(registry: ToolRegistry, scheduler: ReminderScheduler
                     "message": {"type": "string"},
                     "channel": {
                         "type": "string",
-                        "description": "A specific Slack channel ID to notify instead of the current conversation.",
+                        "description": (
+                            "A specific Slack channel ID to notify instead of the current conversation "
+                            "(resolve a channel name with list_channels first)."
+                        ),
                     },
                 },
                 "required": ["delay_minutes", "message"],

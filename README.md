@@ -9,11 +9,12 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 
 - `figai/agent/` -- the model-agnostic agent loop, OpenRouter client, tool registry, and system prompt.
 - `figai/frontends/` -- thin interfaces into that same core: `cli.py` (terminal), `slack_bot.py` / `slack_router.py` (Slack), `tray.py` (system tray), `voice.py` (wake-word voice control), `service.py` (background entry point).
-- `figai/tools/` -- core tools: screenshots, system/battery/network info, launching allowlisted programs, opening URLs, file search/send, clipboard, active window, desktop notifications, media-key control, and the shared confirmation primitive.
+- `figai/tools/` -- core tools: screenshots, system/battery/network info, OpenRouter usage, web search, fetching a specific URL, launching allowlisted programs, opening URLs, file search/send, clipboard, active window, desktop notifications, media-key control, and the shared confirmation primitive.
 - `figai/ssh/` -- key-based SSH: `ssh_run`, and the remote/local Obsidian vault backends behind `memory_read/write/search`.
 - `figai/obs/` -- OBS Studio control over its WebSocket server (recording/streaming/scenes).
 - `figai/voice/` -- the wake-word listening loop (testable in isolation) plus real adapters for the microphone, openWakeWord, and a local Whisper model.
-- `figai/reminders/` -- an in-memory one-off reminder scheduler (`set_reminder`/`list_reminders`/`cancel_reminder`) that posts back to Slack after a delay.
+- `figai/reminders/` -- a one-off reminder scheduler (`set_reminder`/`list_reminders`/`cancel_reminder`) that posts back to Slack after a delay; state survives a restart (see `figai/persistence/`).
+- `figai/persistence/` -- a small atomic JSON store Fig uses to persist active Slack threads, conversation histories, and pending reminders across restarts.
 - `figai/skills_system/` -- the skill loader: discovers `skills/*/SKILL.md`, loads full instructions lazily, and keeps `skills/_pending/` inert until you `!approve` it.
 - `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export), `obs` (recording/streaming/scenes).
 - `figai/scheduler/`, `figai/email/`, `figai/browser_bridge/` -- interface stubs for later phases (not built yet).
@@ -39,8 +40,9 @@ python -m venv .venv
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) -> **Create New App** -> **From an app manifest**.
 2. Paste the contents of [`slack-manifest.yaml`](slack-manifest.yaml). It requests
    `chat:write`, `im:history`, `im:write`, `files:write`, `app_mentions:read`,
-   `channels:history`, `groups:history`, `reactions:write`, subscribes to
-   `message.im`, `message.channels`, `message.groups`, and `app_mention`, and
+   `channels:history`, `groups:history`, `reactions:write`, `channels:read`,
+   `groups:read`, subscribes to `message.im`, `message.channels`,
+   `message.groups`, and `app_mention`, and
    enables Socket Mode.
 3. Under **Socket Mode**, enable it and generate an app-level token with the
    `connections:write` scope -- this is your `SLACK_APP_TOKEN` (`xapp-...`).
@@ -120,9 +122,18 @@ restarts automatically (up to 5 times) if it crashes.
 - Skills Fig drafts for itself (when you ask it to learn something) are written
   to `skills/_pending/` and never activate until you `!approve` them.
 - Reminders: "remind me in 20 minutes to check the oven" posts back to that
-  same conversation (or thread) by default; say a specific channel ID to send
-  it elsewhere instead. These are in-memory -- a reminder is lost if Fig
-  restarts before it fires.
+  same conversation (or thread) by default (and @-mentions you so Slack
+  actually notifies you); name a channel (e.g. "post it to general") and Fig
+  resolves it with `list_channels` first. Persisted to `state_path` in
+  `config.yaml`, so a pending reminder survives a restart -- if Fig was down
+  past its due time, it fires as soon as Fig starts back up.
+- Active Slack threads and their conversation history also persist across a
+  restart, so a follow-up message in a thread you'd previously @-mentioned
+  Fig in still gets a reply without re-tagging it.
+- `web_search` looks things up live via OpenRouter's web plugin (sources
+  included) -- unlike everything else in Fig, this costs real OpenRouter
+  credit per call. `fetch_url` reads one specific public page's text for free
+  and refuses URLs that resolve to a private/internal address.
 - Voice ("fig, open obs"): off by default. Enable it in `config.yaml` under
   `voice:` (`enabled: true`). It listens locally for a wake word, transcribes
   your command with a local Whisper model, and runs it through the same agent
