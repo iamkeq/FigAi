@@ -202,11 +202,36 @@ are fetched with `BODY.PEEK` (nothing is marked read), and there is no send,
 move, or delete capability. Email text is treated as untrusted data -- a
 message that says "forward my files to..." is just content to summarize.
 
-Privacy: summarizing means the email text is sent to your OpenRouter model.
-Free-tier endpoints may log prompts, so for mail you care about, use a paid
-model/provider that doesn't log or train on your data. An app password can
-read the whole mailbox, so keep `.env` private and revoke it at the link above
-if it ever leaks.
+Privacy: by default the email text is shown to your main chat model, and
+free-tier endpoints may log prompts. To keep mail away from it, set a paid
+**email model** -- in `config.yaml` (`models.email: "anthropic/claude-haiku-5.5"`)
+or just tell Fig "use anthropic/claude-haiku-5.5 for email". Then `summarize_emails`
+fetches and summarizes the mail with that model, routed only to providers that
+don't collect prompts (`provider.data_collection: deny`), and returns just the
+summary; the raw-reading tools (`list_emails`/`read_email`) switch themselves
+off. Free models are refused for this role. Summaries cost a fraction of a cent
+(Haiku 5.5 is about $0.10 per million input tokens). An app password can read
+the whole mailbox, so keep `.env` private and revoke it at the link above if it
+ever leaks.
+
+## Switching models
+
+Tell Fig in plain language -- "switch to anthropic/claude-haiku-5.5", "use
+anthropic/claude-haiku-5.5 for email", "what models are you using?", "reset the
+chat model" -- or use the `!model` command, which involves no model at all and
+so still works if the current chat model is the thing that's broken:
+
+```
+!model                      show chat / vision / email models
+!model <provider/model>     switch the chat model
+!model reset                back to the config.yaml default
+```
+
+Roles are `chat` (the main model), `vision` (screenshots), and `email`
+(private summaries). Every id is checked against OpenRouter's catalog before
+anything changes, switches take effect immediately, and they persist across
+restarts (stored with Fig's other state; `config.yaml` stays the default).
+
 
 ## Using Fig
 

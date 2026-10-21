@@ -34,6 +34,7 @@ from figai.tools.confirm import ConfirmationStore
 from figai.tools.fetch_url import register_fetch_url_tool
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
 from figai.tools.media_keys import register_media_key_tool
+from figai.tools.models import ModelManager, register_model_tools
 from figai.tools.notifications import register_notification_tool
 from figai.tools.programs import register_open_program_tool
 from figai.tools.screenshot import register_screenshot_tool
@@ -75,6 +76,7 @@ def build_tool_registry(
     channel_lister: ChannelLister | None,
     on_updated: Callable[[str, str], None] | None,
     bridge_state: BridgeState,
+    models: ModelManager,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -109,6 +111,7 @@ def build_tool_registry(
     register_version_info_tool(registry, config)
     register_browser_bridge_tools(registry, bridge_state, enabled=bool(config.settings.browser_bridge_token))
     register_email_tools(registry, config)
+    register_model_tools(registry, models)
 
     return registry
 
@@ -131,6 +134,7 @@ class AgentSession:
         self.confirmations = ConfirmationStore(timeout_seconds=config.app.limits.confirmation_timeout_seconds)
         self.conversation_context = ConversationContext()
         self.bridge_state = BridgeState()
+        self.models = ModelManager(config, apply_chat=lambda model: setattr(self.loop, "model", model))
 
         def _on_reminder_fire(reminder: Reminder) -> None:
             if message_sender is None:
@@ -162,6 +166,7 @@ class AgentSession:
             channel_lister,
             on_updated,
             self.bridge_state,
+            self.models,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())

@@ -377,3 +377,54 @@ def test_on_change_does_not_fire_for_an_ignored_message(tmp_path: Path) -> None:
     router.handle_event(channel_event("ambient chatter"))
 
     assert changes == []
+
+
+# -- !model command -------------------------------------------------------------
+
+
+def router_with_models(tmp_path: Path):
+    from figai.tools.models import ModelError
+
+    router = make_router(tmp_path)
+    log: list[tuple] = []
+
+    class FakeManager:
+        def describe(self):
+            return "chat: a/chat-1; vision: b/v; email: not set"
+
+        def set(self, role, model):
+            if model == "bad":
+                raise ModelError("'bad' isn't in OpenRouter's catalog")
+            log.append(("set", role, model))
+            return f"{role} model is now {model}."
+
+        def reset(self, role):
+            log.append(("reset", role))
+            return f"{role} model reset."
+
+    router.session.models = FakeManager()
+    return router, log
+
+
+def test_model_command_shows_current_models(tmp_path: Path) -> None:
+    router, _ = router_with_models(tmp_path)
+    assert "a/chat-1" in router.handle_text("D1", "!model")
+
+
+def test_model_command_switches_the_chat_model(tmp_path: Path) -> None:
+    router, log = router_with_models(tmp_path)
+    assert "a/chat-2" in router.handle_text("D1", "!model a/chat-2")
+    assert log == [("set", "chat", "a/chat-2")]
+
+
+def test_model_command_reset_and_error(tmp_path: Path) -> None:
+    router, log = router_with_models(tmp_path)
+    router.handle_text("D1", "!model reset")
+    assert log == [("reset", "chat")]
+    assert "catalog" in router.handle_text("D1", "!model bad")
+
+
+def test_model_command_does_not_reach_the_agent_loop(tmp_path: Path) -> None:
+    router, _ = router_with_models(tmp_path)
+    router.handle_text("D1", "!model a/chat-2")
+    assert router.session.loop.calls == []
