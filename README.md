@@ -124,6 +124,11 @@ different from Slack's `!restart`, which just restarts the already-running
 process with whatever code is already on disk -- use this script when code
 has actually changed.
 
+You can also just ask Fig directly over Slack/CLI: "update yourself" drafts
+pulling from GitHub, reinstalling, and restarting (`propose_update_fig` /
+`resolve_update_fig`), and runs only after you explicitly confirm in a later
+message.
+
 ## Using Fig
 
 - Slack: DM the bot. `!status` reports uptime/model/last error, `!restart`
