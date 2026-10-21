@@ -9,7 +9,7 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 
 - `figai/agent/` -- the model-agnostic agent loop, OpenRouter client, tool registry, and system prompt.
 - `figai/frontends/` -- thin interfaces into that same core: `cli.py` (terminal), `slack_bot.py` / `slack_router.py` (Slack), `tray.py` (system tray), `voice.py` (wake-word voice control), `service.py` (background entry point).
-- `figai/tools/` -- core tools: screenshots, system/battery/network info, launching allowlisted programs, opening URLs, file search/send, clipboard, active window, desktop notifications, media-key control, and the shared confirmation primitive.
+- `figai/tools/` -- core tools: screenshots, system/battery/network info, OpenRouter usage, web search, fetching a specific URL, launching allowlisted programs, opening URLs, file search/send, clipboard, active window, desktop notifications, media-key control, and the shared confirmation primitive.
 - `figai/ssh/` -- key-based SSH: `ssh_run`, and the remote/local Obsidian vault backends behind `memory_read/write/search`.
 - `figai/obs/` -- OBS Studio control over its WebSocket server (recording/streaming/scenes).
 - `figai/voice/` -- the wake-word listening loop (testable in isolation) plus real adapters for the microphone, openWakeWord, and a local Whisper model.
@@ -123,6 +123,10 @@ restarts automatically (up to 5 times) if it crashes.
   same conversation (or thread) by default; say a specific channel ID to send
   it elsewhere instead. These are in-memory -- a reminder is lost if Fig
   restarts before it fires.
+- `web_search` looks things up live via OpenRouter's web plugin (sources
+  included) -- unlike everything else in Fig, this costs real OpenRouter
+  credit per call. `fetch_url` reads one specific public page's text for free
+  and refuses URLs that resolve to a private/internal address.
 - Voice ("fig, open obs"): off by default. Enable it in `config.yaml` under
   `voice:` (`enabled: true`). It listens locally for a wake word, transcribes
   your command with a local Whisper model, and runs it through the same agent

@@ -27,6 +27,7 @@ from figai.ssh.remote_vault import RemoteVaultBackend
 from figai.ssh.run import register_ssh_run_tools
 from figai.tools.clipboard import register_clipboard_tools
 from figai.tools.confirm import ConfirmationStore
+from figai.tools.fetch_url import register_fetch_url_tool
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
 from figai.tools.media_keys import register_media_key_tool
 from figai.tools.notifications import register_notification_tool
@@ -36,6 +37,7 @@ from figai.tools.system_info import register_system_info_tools
 from figai.tools.time_tool import register_time_tool
 from figai.tools.usage import register_usage_tool
 from figai.tools.web import register_open_url_tool
+from figai.tools.web_search import register_web_search_tool
 from figai.tools.window import register_active_window_tool
 
 SKILLS_ROOT = Path("skills")
@@ -75,6 +77,8 @@ def build_tool_registry(
 
     register_system_info_tools(registry)
     register_usage_tool(registry, config)
+    register_web_search_tool(registry, config)
+    register_fetch_url_tool(registry)
     register_open_program_tool(registry, config)
     register_open_url_tool(registry)
     register_search_files_tool(registry, config)
