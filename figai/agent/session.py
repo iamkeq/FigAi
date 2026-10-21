@@ -1,0 +1,109 @@
+"""Shared wiring for the agent core (tools, skills, vault memory, system prompt)
+used identically by every front-end -- CLI today, Slack next."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
+
+from typing import Any
+
+from figai.agent.client import build_client
+from figai.agent.loop import AgentLoop
+from figai.agent.prompt import build_system_prompt
+from figai.agent.tools import ToolRegistry
+from figai.brain_map.tools import register_brain_map_tool
+from figai.config import Config
+from figai.media.tools import register_media_tools
+from figai.skills_system.core_tools import register_skill_management_tools
+from figai.skills_system.loader import SkillLoader
+from figai.ssh.local_vault import LocalVaultBackend
+from figai.ssh.memory import load_index_note, register_memory_tools
+from figai.ssh.remote_vault import RemoteVaultBackend
+from figai.ssh.run import register_ssh_run_tools
+from figai.tools.confirm import ConfirmationStore
+from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
+from figai.tools.programs import register_open_program_tool
+from figai.tools.screenshot import register_screenshot_tool
+from figai.tools.system_info import register_system_info_tools
+from figai.tools.time_tool import register_time_tool
+from figai.tools.web import register_open_url_tool
+
+SKILLS_ROOT = Path("skills")
+
+
+def build_remote_vault_factory(config: Config) -> Callable[[], RemoteVaultBackend]:
+    def factory() -> RemoteVaultBackend:
+        alias = config.app.vault.ssh_host_alias
+        host = config.settings.ssh_hosts.get(alias)
+        if host is None:
+            raise OSError(f"SSH host alias '{alias}' is not configured in .env")
+        return RemoteVaultBackend(host, config.app.vault.remote_path, config.app.vault.remote_writable_subfolder)
+
+    return factory
+
+
+def build_tool_registry(
+    config: Config,
+    loader: SkillLoader,
+    confirmations: ConfirmationStore,
+    remote_factory: Callable[[], RemoteVaultBackend],
+    local_vault: LocalVaultBackend,
+    client: Any,
+    file_sender: FileSender | None,
+) -> ToolRegistry:
+    registry = ToolRegistry()
+    register_time_tool(registry)
+    register_skill_management_tools(registry, loader)
+    loader.register_all_tools(registry)
+
+    register_ssh_run_tools(registry, config, confirmations)
+    register_memory_tools(registry, config, remote_factory, local_vault, confirmations)
+
+    register_system_info_tools(registry)
+    register_open_program_tool(registry, config)
+    register_open_url_tool(registry)
+    register_search_files_tool(registry, config)
+    register_send_file_tools(registry, config, confirmations, file_sender)
+    register_screenshot_tool(registry, config, client, file_sender=file_sender)
+
+    register_media_tools(registry, config, confirmations)
+    register_brain_map_tool(registry, remote_factory, local_vault, file_sender)
+
+    return registry
+
+
+class AgentSession:
+    """Everything a front-end needs for one conversation: the agent loop, the
+    skill loader (for skill-management commands), and the confirmation store
+    (for front-ends that need to recognize a user's confirming reply)."""
+
+    def __init__(self, config: Config, file_sender: FileSender | None = None) -> None:
+        self.config = config
+        self.loader = SkillLoader(SKILLS_ROOT)
+        self.confirmations = ConfirmationStore(timeout_seconds=config.app.limits.confirmation_timeout_seconds)
+
+        client = build_client(config)
+        remote_factory = build_remote_vault_factory(config)
+        local_vault = LocalVaultBackend(
+            Path(config.app.vault.local_path), config.app.vault.remote_writable_subfolder
+        )
+        registry = build_tool_registry(
+            config, self.loader, self.confirmations, remote_factory, local_vault, client, file_sender
+        )
+
+        system_prompt = build_system_prompt(self.loader.get_summary_text())
+        index_content, index_backend = load_index_note(remote_factory, local_vault, config.app.vault.index_note)
+        if index_content:
+            system_prompt += (
+                f"\n\nYour saved memory (from the {index_backend} vault's "
+                f"'{config.app.vault.index_note}'):\n{index_content}"
+            )
+
+        self.loop = AgentLoop(
+            client=client,
+            model=config.app.models.default_chat,
+            tools=registry,
+            system_prompt=system_prompt,
+            max_iterations=config.app.limits.max_agent_iterations,
+        )
