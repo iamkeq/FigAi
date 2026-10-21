@@ -110,6 +110,9 @@ class Settings(BaseModel):
     github_token: str | None = None
     # Shared secret for the Chrome tab-bridge extension; the bridge is off without it.
     browser_bridge_token: str | None = None
+    # Optional read-only Gmail access (IMAP + app password) for email summaries.
+    gmail_address: str | None = None
+    gmail_app_password: str | None = None
 
     @classmethod
     def from_env(cls, env_path: Path = DEFAULT_ENV_PATH) -> "Settings":
@@ -142,6 +145,7 @@ class Settings(BaseModel):
                 obs=ObsConnection.from_env(),
                 github_token=os.environ.get("GITHUB_TOKEN") or None,
                 browser_bridge_token=_bridge_token(),
+                **_gmail_credentials(),
             )
         except ValidationError as exc:
             raise ConfigError(f"Invalid .env configuration: {exc}") from exc
@@ -152,6 +156,14 @@ def _bridge_token() -> str | None:
     if token is not None and len(token) < 16:
         raise ConfigError("BROWSER_BRIDGE_TOKEN must be at least 16 characters (use a long random string)")
     return token
+
+
+def _gmail_credentials() -> dict[str, str | None]:
+    address = os.environ.get("GMAIL_ADDRESS") or None
+    password = (os.environ.get("GMAIL_APP_PASSWORD") or "").replace(" ", "") or None  # Google shows it in groups
+    if bool(address) != bool(password):
+        raise ConfigError("GMAIL_ADDRESS and GMAIL_APP_PASSWORD must both be set, or neither")
+    return {"gmail_address": address, "gmail_app_password": password}
 
 
 def _require_env(name: str) -> str:

@@ -134,3 +134,15 @@ def test_browser_bridge_token_must_be_long_enough(tmp_path: Path, clean_env: Non
 def test_browser_bridge_token_is_read_when_valid(tmp_path: Path, clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BROWSER_BRIDGE_TOKEN", "x" * 24)
     assert Settings.from_env(write_env(tmp_path)).browser_bridge_token == "x" * 24
+
+
+def test_gmail_credentials_require_both_or_neither(tmp_path: Path, clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    with pytest.raises(ConfigError):
+        Settings.from_env(write_env(tmp_path))
+
+
+def test_gmail_app_password_spaces_are_stripped(tmp_path: Path, clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GMAIL_ADDRESS", "me@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "abcd efgh ijkl mnop")
+    assert Settings.from_env(write_env(tmp_path)).gmail_app_password == "abcdefghijklmnop"

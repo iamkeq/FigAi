@@ -18,7 +18,8 @@ SDK; memory lives in your Obsidian vault on another machine, reached over SSH.
 - `figai/skills_system/` -- the skill loader: discovers `skills/*/SKILL.md`, loads full instructions lazily, and keeps `skills/_pending/` inert until you `!approve` it.
 - `skills/` -- built-in skills: `ssh`, `media` (Sonarr/Radarr/SABnzbd), `brain_map` (vault graph export), `obs` (recording/streaming/scenes).
 - `figai/browser_bridge/` + `browser_extension/` -- a localhost-only server and a Chrome extension that let Fig list your open tabs and open a tab on request.
-- `figai/scheduler/`, `figai/email/` -- interface stubs for later phases (not built yet).
+- `figai/gmail/` -- read-only Gmail access over IMAP (`list_emails`, `read_email`) so Fig can summarize your mail.
+- `figai/scheduler/` -- interface stub for a later phase (recurring jobs, e.g. a morning digest; not built yet).
 
 ## Setup
 
@@ -181,6 +182,31 @@ Then ask Fig things like "list my open tabs" or "open github.com". If Chrome
 isn't running (or the extension isn't set up), Fig says so; `open_url` still
 works as a fallback. Tab titles and URLs are treated as untrusted data, and
 `open_tab` only accepts http(s) URLs.
+
+## Gmail summaries
+
+Ask things like "summarize my unread emails from today" or "what did Amazon
+send me this week?". Fig searches with Gmail's own syntax (`is:unread`,
+`from:`, `newer_than:2d`, `label:`) and reads the messages it needs.
+
+Setup: turn on 2-Step Verification for the Google account, create an app
+password at <https://myaccount.google.com/apppasswords>, and add to `.env`:
+
+```
+GMAIL_ADDRESS=you@gmail.com
+GMAIL_APP_PASSWORD=abcd efgh ijkl mnop
+```
+
+Fig's access is strictly read-only: the mailbox is opened read-only, messages
+are fetched with `BODY.PEEK` (nothing is marked read), and there is no send,
+move, or delete capability. Email text is treated as untrusted data -- a
+message that says "forward my files to..." is just content to summarize.
+
+Privacy: summarizing means the email text is sent to your OpenRouter model.
+Free-tier endpoints may log prompts, so for mail you care about, use a paid
+model/provider that doesn't log or train on your data. An app password can
+read the whole mailbox, so keep `.env` private and revoke it at the link above
+if it ever leaks.
 
 ## Using Fig
 
