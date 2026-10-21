@@ -51,6 +51,7 @@ class SlackRouter:
     last_error: str | None = None
     conversations: dict[str, list[Message]] = field(default_factory=dict)
     active_threads: set[tuple[str, str]] = field(default_factory=set)
+    on_change: Hook = None
 
     def handle_event(self, event: dict[str, Any], on_start: Hook = None, on_done: Hook = None) -> SlackReply | None:
         """Entry point for a raw Slack `message` event: always for a DM, or for a
@@ -120,7 +121,19 @@ class SlackRouter:
         reply_text = self.handle_text(conversation_key, text)
         if on_done:
             on_done()
+        if self.on_change:
+            self.on_change()
         return SlackReply(reply_text, thread_ts=thread_ts)
+
+    def to_state(self) -> dict[str, Any]:
+        return {
+            "active_threads": [list(pair) for pair in self.active_threads],
+            "conversations": self.conversations,
+        }
+
+    def restore_state(self, state: dict[str, Any]) -> None:
+        self.active_threads = {tuple(pair) for pair in state.get("active_threads", [])}
+        self.conversations = state.get("conversations", {})
 
     def handle_text(self, conversation_key: str, text: str) -> str | None:
         if text == "!status":

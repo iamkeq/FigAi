@@ -157,6 +157,9 @@ class AppConfig(BaseModel):
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    # Where Fig persists lightweight runtime state (active Slack threads,
+    # conversation histories, pending reminders) so it survives a restart.
+    state_path: str = "data/figai_state.json"
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_CONFIG_PATH) -> "AppConfig":

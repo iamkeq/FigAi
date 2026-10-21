@@ -9,3 +9,4 @@ logs/*.log
 config/config.yaml
 skills/_pending/*
 !skills/_pending/.gitkeep
+data/figai_state.json

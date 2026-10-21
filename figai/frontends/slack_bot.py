@@ -15,6 +15,7 @@ from figai.agent.session import AgentSession
 from figai.config import Config
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
+from figai.persistence.store import JsonStore
 
 logger = get_logger("slack.bot")
 
@@ -85,6 +86,28 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         channel_lister=build_channel_lister(app),
     )
     router = SlackRouter(session=session, config=config, allowed_user_id=owner_channel)
+
+    store = JsonStore(Path(config.app.state_path))
+    state = store.load()
+    router.restore_state(state.get("slack", {}))
+    session.reminder_scheduler.restore(state.get("reminders", []))
+
+    def _save_state() -> None:
+        try:
+            store.save({"slack": router.to_state(), "reminders": session.reminder_scheduler.to_state()})
+        except Exception:
+            logger.exception("Failed to persist state to %s", store.path)
+
+    router.on_change = _save_state
+    session.reminder_scheduler.on_change = _save_state
+
+    if state:
+        logger.info(
+            "Restored %d active thread(s) and %d pending reminder(s) from %s",
+            len(router.active_threads),
+            len(session.reminder_scheduler.list_pending()),
+            store.path,
+        )
 
     if on_ready is not None:
         on_ready(router)

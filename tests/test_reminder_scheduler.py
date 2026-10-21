@@ -101,3 +101,79 @@ def test_schedule_stores_channel_and_thread_ts() -> None:
 
     assert reminder.channel == "C1"
     assert reminder.thread_ts == "100.1"
+
+
+# -- persistence (to_state/restore/on_change) ---------------------------------
+
+
+def test_on_change_fires_on_schedule_cancel_and_fire() -> None:
+    fired: list[Reminder] = []
+    changes: list[str] = []
+    scheduler, timers = make_scheduler(fired)
+    scheduler.on_change = lambda: changes.append("changed")
+
+    reminder = scheduler.schedule(60, "x", channel="C1")
+    assert changes == ["changed"]
+
+    timers[0].callback()
+    assert changes == ["changed", "changed"]
+
+    scheduler.schedule(60, "y", channel="C1")
+    scheduler.cancel(scheduler.list_pending()[0].id)
+    assert changes[-1] == "changed"
+
+
+def test_to_state_serializes_pending_reminders() -> None:
+    fired: list[Reminder] = []
+    clock = FakeClock(start=1000.0)
+    scheduler, _ = make_scheduler(fired, clock)
+    scheduler.schedule(60, "take out the trash", channel="C1", thread_ts="100.1")
+
+    assert scheduler.to_state() == [
+        {"id": 1, "message": "take out the trash", "channel": "C1", "thread_ts": "100.1", "due_at": 1060.0}
+    ]
+
+
+def test_restore_reschedules_a_future_reminder() -> None:
+    fired: list[Reminder] = []
+    clock = FakeClock(start=1000.0)
+    scheduler, timers = make_scheduler(fired, clock)
+
+    scheduler.restore([{"id": 5, "message": "later", "channel": "C1", "thread_ts": None, "due_at": 1060.0}])
+
+    assert len(timers) == 1
+    assert scheduler.list_pending()[0].id == 5
+    timers[0].callback()
+    assert [r.message for r in fired] == ["later"]
+
+
+def test_restore_fires_an_overdue_reminder_almost_immediately() -> None:
+    fired: list[Reminder] = []
+    clock = FakeClock(start=1000.0)
+    scheduler, timers = make_scheduler(fired, clock)
+
+    scheduler.restore([{"id": 5, "message": "overdue", "channel": "C1", "thread_ts": None, "due_at": 500.0}])
+
+    timers[0].callback()
+    assert [r.message for r in fired] == ["overdue"]
+
+
+def test_restore_continues_ids_after_the_highest_restored_id() -> None:
+    fired: list[Reminder] = []
+    scheduler, _ = make_scheduler(fired)
+
+    scheduler.restore([{"id": 7, "message": "x", "channel": "C1", "thread_ts": None, "due_at": 2000.0}])
+    new_reminder = scheduler.schedule(60, "y", channel="C1")
+
+    assert new_reminder.id == 8
+
+
+def test_restore_then_to_state_round_trips() -> None:
+    fired: list[Reminder] = []
+    clock = FakeClock(start=1000.0)
+    scheduler, _ = make_scheduler(fired, clock)
+    state = [{"id": 3, "message": "x", "channel": "C1", "thread_ts": "9.9", "due_at": 1500.0}]
+
+    scheduler.restore(state)
+
+    assert scheduler.to_state() == state
