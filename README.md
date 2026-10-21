@@ -108,6 +108,22 @@ This registers a Task Scheduler task that launches Fig with `pythonw.exe` (no
 console window) at your next logon, runs only while you're logged on, and
 restarts automatically (up to 5 times) if it crashes.
 
+### 8. Pulling updates
+
+Whenever new commits land on GitHub, run:
+
+```powershell
+.\scripts\update_and_restart.ps1
+```
+
+It stops Fig (the scheduled task if that's how it's running, or a plain
+background process otherwise -- an interactive `--cli` session is left
+alone), pulls the latest code, reinstalls dependencies (picks up anything
+new), and starts Fig back up the same way it was running before. This is
+different from Slack's `!restart`, which just restarts the already-running
+process with whatever code is already on disk -- use this script when code
+has actually changed.
+
 ## Using Fig
 
 - Slack: DM the bot. `!status` reports uptime/model/last error, `!restart`
