@@ -43,12 +43,43 @@ class ServiceConnection(BaseModel):
         return cls(url=url, api_key=api_key)
 
 
+class ObsConnection(BaseModel):
+    host: str
+    port: int = 4455
+    password: str | None = None
+
+    @classmethod
+    def from_env(cls) -> "ObsConnection | None":
+        host = os.environ.get("OBS_WS_HOST")
+        if not host:
+            return None
+        port_raw = os.environ.get("OBS_WS_PORT", "4455")
+        try:
+            port = int(port_raw)
+        except ValueError:
+            raise ConfigError(f"OBS_WS_PORT must be a number, got: {port_raw!r}") from None
+        return cls(host=host, port=port, password=os.environ.get("OBS_WS_PASSWORD") or None)
+
+
 class VaultConfig(BaseModel):
     ssh_host_alias: str
     remote_path: str
     remote_writable_subfolder: str = "AI"
     local_path: str
     index_note: str = "AI/index.md"
+
+
+class VoiceConfig(BaseModel):
+    enabled: bool = False
+    # openWakeWord ships pretrained models for specific words ("hey_jarvis",
+    # "alexa", "hey_mycroft", ...); there's no built-in "fig" model. Train a
+    # custom one with openWakeWord's training notebook and point this at its
+    # file path once you have it -- until then this is a working stand-in.
+    wake_word_model: str = "hey_jarvis"
+    wake_word_threshold: float = 0.5
+    whisper_model: str = "base.en"
+    silence_seconds: float = 1.2
+    max_command_seconds: float = 15.0
 
 
 class LimitsConfig(BaseModel):
@@ -73,6 +104,7 @@ class Settings(BaseModel):
     sonarr: ServiceConnection | None = None
     radarr: ServiceConnection | None = None
     sabnzbd: ServiceConnection | None = None
+    obs: ObsConnection | None = None
 
     @classmethod
     def from_env(cls, env_path: Path = DEFAULT_ENV_PATH) -> "Settings":
@@ -102,6 +134,7 @@ class Settings(BaseModel):
                 sonarr=ServiceConnection.from_env_pair("SONARR_URL", "SONARR_API_KEY"),
                 radarr=ServiceConnection.from_env_pair("RADARR_URL", "RADARR_API_KEY"),
                 sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY"),
+                obs=ObsConnection.from_env(),
             )
         except ValidationError as exc:
             raise ConfigError(f"Invalid .env configuration: {exc}") from exc
@@ -122,6 +155,7 @@ class AppConfig(BaseModel):
     allowlisted_folders: list[str] = Field(default_factory=list)
     allowlisted_programs: dict[str, str] = Field(default_factory=dict)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
+    voice: VoiceConfig = Field(default_factory=VoiceConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     @classmethod

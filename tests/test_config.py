@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from figai.config import AppConfig, ConfigError, Settings
+from figai.config import AppConfig, ConfigError, ObsConnection, Settings
 
 
 def write_env(path: Path, **overrides: str) -> Path:
@@ -57,3 +57,68 @@ def test_app_config_from_yaml(valid_config_yaml: Path) -> None:
 def test_app_config_missing_file_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(ConfigError):
         AppConfig.from_yaml(tmp_path / "nope.yaml")
+
+
+def test_obs_connection_absent_when_host_unset(clean_env: None) -> None:
+    assert ObsConnection.from_env() is None
+
+
+def test_obs_connection_parses_host_port_password(monkeypatch: pytest.MonkeyPatch, clean_env: None) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+    monkeypatch.setenv("OBS_WS_PORT", "4456")
+    monkeypatch.setenv("OBS_WS_PASSWORD", "secret")
+
+    conn = ObsConnection.from_env()
+
+    assert conn == ObsConnection(host="127.0.0.1", port=4456, password="secret")
+
+
+def test_obs_connection_defaults_port_and_allows_no_password(
+    monkeypatch: pytest.MonkeyPatch, clean_env: None
+) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+
+    conn = ObsConnection.from_env()
+
+    assert conn == ObsConnection(host="127.0.0.1", port=4455, password=None)
+
+
+def test_obs_connection_invalid_port_fails_closed(monkeypatch: pytest.MonkeyPatch, clean_env: None) -> None:
+    monkeypatch.setenv("OBS_WS_HOST", "127.0.0.1")
+    monkeypatch.setenv("OBS_WS_PORT", "not-a-number")
+
+    with pytest.raises(ConfigError):
+        ObsConnection.from_env()
+
+
+def test_app_config_voice_defaults_to_disabled(valid_config_yaml: Path) -> None:
+    config = AppConfig.from_yaml(valid_config_yaml)
+
+    assert config.voice.enabled is False
+    assert config.voice.wake_word_model == "hey_jarvis"
+
+
+def test_app_config_voice_can_be_enabled_with_custom_settings(tmp_path: Path) -> None:
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        """
+models:
+  default_chat: "x"
+  vision: "y"
+vault:
+  ssh_host_alias: "vault"
+  remote_path: "/v"
+  local_path: "/tmp/v"
+voice:
+  enabled: true
+  wake_word_model: "alexa"
+  wake_word_threshold: 0.7
+""",
+        encoding="utf-8",
+    )
+
+    config = AppConfig.from_yaml(path)
+
+    assert config.voice.enabled is True
+    assert config.voice.wake_word_model == "alexa"
+    assert config.voice.wake_word_threshold == 0.7

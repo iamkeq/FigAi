@@ -15,6 +15,13 @@ dependencies = [
     "pystray>=0.19",
     "paramiko>=3.4",
     "requests>=2.32",
+    "pyperclip>=1.9",
+    "obsws-python>=1.7",
+    "winotify>=1.1; sys_platform == 'win32'",
+    "numpy>=1.26",
+    "sounddevice>=0.4",
+    "openwakeword>=0.6",
+    "faster-whisper>=1.0",
 ]
 
 [project.optional-dependencies]

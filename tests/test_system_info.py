@@ -36,3 +36,26 @@ def test_list_running_programs_sorts_by_memory() -> None:
 
     memory_values = [p["memory_mb"] for p in result]
     assert memory_values == sorted(memory_values, reverse=True)
+
+
+def test_battery_status_returns_available_flag() -> None:
+    registry = ToolRegistry()
+    register_system_info_tools(registry)
+
+    result = json.loads(registry.execute("battery_status", "{}"))
+
+    assert "available" in result
+    if result["available"]:
+        assert "percent" in result
+        assert "plugged_in" in result
+
+
+def test_network_status_returns_interface_list() -> None:
+    registry = ToolRegistry()
+    register_system_info_tools(registry)
+
+    result = json.loads(registry.execute("network_status", "{}"))
+
+    assert isinstance(result["interfaces"], list)
+    assert len(result["interfaces"]) >= 1
+    assert {"name", "is_up", "speed_mbps", "addresses"} <= result["interfaces"][0].keys()

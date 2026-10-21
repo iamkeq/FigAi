@@ -31,4 +31,16 @@ limits:
   max_send_file_mb: 25
   confirmation_timeout_seconds: 300
 
+# Wake-word voice control ("<wake word>, open obs"). Off by default -- needs a
+# working microphone. openWakeWord ships pretrained words (hey_jarvis, alexa,
+# hey_mycroft, ...); there's no built-in "fig" model yet. Point wake_word_model
+# at a custom-trained model's file path once you have one.
+voice:
+  enabled: false
+  wake_word_model: "hey_jarvis"
+  wake_word_threshold: 0.5
+  whisper_model: "base.en"
+  silence_seconds: 1.2
+  max_command_seconds: 15
+
 log_level: "INFO"

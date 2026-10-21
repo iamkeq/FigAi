@@ -39,8 +39,16 @@ def handle_skill_command(user_input: str, loader: SkillLoader) -> bool:
     return False
 
 
+CLI_CHANNEL = "cli"
+
+
+def _cli_message_sender(_channel: str, text: str, _thread_ts: str | None) -> None:
+    print(f"\nfig (reminder)> {text}\nyou> ", end="", flush=True)
+
+
 def run_cli(config: Config) -> None:
-    session = AgentSession(config)
+    session = AgentSession(config, message_sender=_cli_message_sender)
+    session.conversation_context.current_channel = CLI_CHANNEL
 
     print(f"Fig CLI -- model: {config.app.models.default_chat}. Type 'exit' to quit, '!skills' to list skills.")
     conversation: list[Message] = []
