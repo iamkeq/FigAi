@@ -34,6 +34,7 @@ from figai.tools.media_keys import register_media_key_tool
 from figai.tools.notifications import register_notification_tool
 from figai.tools.programs import register_open_program_tool
 from figai.tools.screenshot import register_screenshot_tool
+from figai.tools.self_update import register_self_update_tools
 from figai.tools.system_info import register_system_info_tools
 from figai.tools.time_tool import register_time_tool
 from figai.tools.usage import register_usage_tool
@@ -98,6 +99,7 @@ def build_tool_registry(
 
     register_reminder_tools(registry, reminder_scheduler, conversation_context)
     register_list_channels_tool(registry, channel_lister)
+    register_self_update_tools(registry, confirmations)
 
     return registry
 
