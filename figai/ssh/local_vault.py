@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet
+from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet, trash_path
 
 
 class LocalVaultBackend:
@@ -41,6 +41,32 @@ class LocalVaultBackend:
         path = self._resolve(relative_path, for_write=True)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+    def _move_resolved(self, source: Path, target: Path, shown_source: str, shown_target: str) -> None:
+        if source == self.root.resolve():
+            raise VaultPathError("The vault root can't be moved or deleted.")
+        if not source.exists():
+            raise FileNotFoundError(shown_source)
+        if target.exists():
+            raise VaultPathError(f"'{shown_target}' already exists; I won't overwrite it.")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(target)
+
+    def move(self, source_path: str, target_path: str) -> None:
+        self._move_resolved(
+            self._resolve(source_path, for_write=True),
+            self._resolve(target_path, for_write=True),
+            source_path,
+            target_path,
+        )
+
+    def trash(self, relative_path: str) -> str:
+        """Recoverable delete: moves into .fig-trash/<timestamp>/. Returns the new location."""
+        destination = trash_path(relative_path)
+        self._move_resolved(
+            self._resolve(relative_path, for_write=True), (self.root / destination).resolve(), relative_path, destination
+        )
+        return destination
 
     def list_dir(self, relative_path: str = "") -> list[str]:
         path = self._resolve(relative_path, for_write=False)

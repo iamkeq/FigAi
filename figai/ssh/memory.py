@@ -20,6 +20,8 @@ logger = get_logger("ssh.memory")
 RemoteFactory = Callable[[], RemoteVaultBackend]
 VaultBackend = LocalVaultBackend | RemoteVaultBackend
 OVERWRITE_ACTION_TYPE = "memory_overwrite"
+MOVE_ACTION_TYPE = "memory_move"
+DELETE_ACTION_TYPE = "memory_delete"
 
 
 def with_fallback(
@@ -162,6 +164,102 @@ def register_memory_tools(
         )
     )
 
+    def _propose_change(action_type: str, payload: dict[str, Any], preview: str) -> str:
+        token = confirmations.propose(action_type, payload, preview)
+        logger.info("Proposed %s token=%s %s", action_type, token, preview)
+        return json.dumps(
+            {
+                "status": "awaiting_confirmation",
+                "token": token,
+                "preview": preview,
+                "note": "Wait for the user's explicit yes in a LATER message before calling resolve_memory_change.",
+            }
+        )
+
+    def _move(arguments: dict[str, Any]) -> str:
+        source, target = arguments["from_path"], arguments["to_path"]
+        try:
+            local._resolve(source, for_write=True)  # cheap path-rule check before bothering the user
+            local._resolve(target, for_write=True)
+        except VaultPathError as exc:
+            return json.dumps({"error": str(exc)})
+        return _propose_change(
+            MOVE_ACTION_TYPE, {"from": source, "to": target}, f"Move vault note/folder '{source}' to '{target}'"
+        )
+
+    registry.register(
+        Tool(
+            name="memory_move",
+            description=(
+                "Draft moving or renaming a vault note or folder (paths relative to the vault root; missing "
+                "folders are created; refuses to overwrite). Does nothing until the user confirms in a later "
+                "message, then call resolve_memory_change."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {"from_path": {"type": "string"}, "to_path": {"type": "string"}},
+                "required": ["from_path", "to_path"],
+            },
+            handler=_move,
+        )
+    )
+
+    def _delete(arguments: dict[str, Any]) -> str:
+        path = arguments["path"]
+        try:
+            local._resolve(path, for_write=True)
+        except VaultPathError as exc:
+            return json.dumps({"error": str(exc)})
+        return _propose_change(
+            DELETE_ACTION_TYPE,
+            {"path": path},
+            f"Delete vault note/folder '{path}' (moved to .fig-trash, so it can be recovered)",
+        )
+
+    registry.register(
+        Tool(
+            name="memory_delete",
+            description=(
+                "Draft deleting a vault note or folder. It is moved into the vault's .fig-trash folder, not "
+                "erased, so it can be recovered. Does nothing until the user confirms in a later message, "
+                "then call resolve_memory_change."
+            ),
+            parameters={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+            handler=_delete,
+        )
+    )
+
+    def _resolve_change(arguments: dict[str, Any]) -> str:
+        token = arguments["token"]
+        for action_type in (MOVE_ACTION_TYPE, DELETE_ACTION_TYPE):
+            try:
+                payload = confirmations.resolve(token, action_type)
+            except TimeoutError as exc:
+                return json.dumps({"error": str(exc)})
+            except KeyError:
+                continue
+            try:
+                if action_type == MOVE_ACTION_TYPE:
+                    _, backend = with_fallback(remote_factory, local, lambda b: b.move(payload["from"], payload["to"]))
+                    return json.dumps({"status": "moved", "backend": backend, "from": payload["from"], "to": payload["to"]})
+                destination, backend = with_fallback(remote_factory, local, lambda b: b.trash(payload["path"]))
+                return json.dumps({"status": "deleted", "backend": backend, "recoverable_at": destination})
+            except (VaultPathError, FileNotFoundError) as exc:
+                return json.dumps({"error": f"Nothing changed: {exc}"})
+        return json.dumps({"error": f"No pending move/delete for token '{token}'"})
+
+    registry.register(
+        Tool(
+            name="resolve_memory_change",
+            description=(
+                "Carry out a vault move or delete after the user explicitly confirmed it in a later message "
+                "(token from memory_move or memory_delete)."
+            ),
+            parameters={"type": "object", "properties": {"token": {"type": "string"}}, "required": ["token"]},
+            handler=_resolve_change,
+        )
+    )
+
     def _list(arguments: dict[str, Any]) -> str:
         path = arguments.get("path", "")
         try:
@@ -185,7 +283,10 @@ def register_memory_tools(
 
     def _search(arguments: dict[str, Any]) -> str:
         query = arguments["query"]
-        results, backend = with_fallback(remote_factory, local, lambda b: b.search(query))
+        try:
+            results, backend = with_fallback(remote_factory, local, lambda b: b.search(query))
+        except (VaultPathError, FileNotFoundError) as exc:
+            return json.dumps({"error": str(exc)})
         return json.dumps({"backend": backend, "results": results})
 
     registry.register(
