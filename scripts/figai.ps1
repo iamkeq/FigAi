@@ -31,6 +31,8 @@ function Stop-Fig {
     $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($task -and $task.State -eq "Running") { Stop-ScheduledTask -TaskName $TaskName }
     Get-FigProcesses | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    # A deliberate stop, so Fig must not report an "unexpected stop" at his next start.
+    Remove-Item (Join-Path $Root "data\figai.running") -ErrorAction SilentlyContinue
 }
 
 function Start-Fig {

@@ -151,6 +151,22 @@ commit (`git reset --keep`), reinstalls and restarts that version. Output goes
 to `logs\update.log`. Test it with `Start-ScheduledTask -TaskName FigAI-NightlyUpdate`.
 The PC must be on and you logged in; a missed run catches up when it wakes.
 
+#### Health, logs and alerts
+
+Ask Fig "are you ok?" (or send `!health`) for a one-shot report: OpenRouter key,
+remote vault, Gmail, Chrome bridge, and the number of errors in the last 24 hours.
+`!logs [errors|warnings|tools|all] [count]` (and `!errors`) show recent log records in
+Slack, and Fig can read them himself with the `recent_logs` tool.
+
+If Fig hits his step limit he now says what he tried and where he got stuck.
+
+At every start Fig also posts a warning to the announcement channel when:
+- his previous run ended unexpectedly (crash, killed process, power loss), or
+- the last unattended update failed, was rolled back, or couldn't pull.
+Stopping him with `figai.ps1 stop` or the update script is deliberate and does not
+trigger the "unexpected stop" warning. (If an update *and* its rollback both leave Fig
+down, nothing can post -- check `logs\update.log`.)
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the

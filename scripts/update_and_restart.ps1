@@ -58,11 +58,24 @@ function Test-FigRunning {
     return [bool](Get-FigProcesses)
 }
 
+function Write-UpdateResult {
+    # Leaves a note for Fig to post to Slack at his next start (see figai/lifecycle.py).
+    param([string]$Status, [string]$Detail = "", [string]$Attempted = "", [string]$Previous = "")
+    $dir = Join-Path $WorkingDirectory "data"
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    [pscustomobject]@{
+        status = $Status; time = (Get-Date -Format "yyyy-MM-dd HH:mm"); detail = $Detail
+        attempted = $Attempted; previous = $Previous
+    } | ConvertTo-Json | Set-Content -Path (Join-Path $dir "update_result.json") -Encoding UTF8
+}
+
 function Stop-Fig {
     $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($task -and $task.State -eq "Running") { Stop-ScheduledTask -TaskName $TaskName }
     Get-FigProcesses | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Seconds 2
+    # A deliberate stop, so Fig must not report an "unexpected stop" at his next start.
+    Remove-Item (Join-Path $WorkingDirectory "data\figai.running") -ErrorAction SilentlyContinue
 }
 
 function Start-Fig {
@@ -153,6 +166,7 @@ try {
     Invoke-Native { git pull }
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "git pull failed; starting the existing code again instead of leaving Fig down."
+        Write-UpdateResult -Status "pull_failed" -Previous $previous
         Start-Fig
         exit 1
     }
@@ -161,6 +175,7 @@ try {
     Invoke-Native { & $Pip install -e ".[dev]" }
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "pip install failed; starting Fig anyway."
+        Write-UpdateResult -Status "install_failed" -Previous $previous
     }
 
     Start-Fig
@@ -168,12 +183,15 @@ try {
     Start-Sleep -Seconds $HealthCheckSeconds
     if ($previous -and -not (Test-FigRunning)) {
         Write-Warning "Fig isn't running $HealthCheckSeconds seconds after the update; rolling back to $previous."
+        $attempted = (Invoke-Native { git rev-parse HEAD }) | Select-Object -First 1
         Invoke-Native { git reset --keep $previous }
         if ($LASTEXITCODE -eq 0) {
+            Write-UpdateResult -Status "rolled_back" -Attempted $attempted -Previous $previous
             Invoke-Native { & $Pip install -e ".[dev]" }
             Start-Fig
             Write-Warning "Rolled back and restarted the previous version. See logs\figai.log and logs\figai-console.log."
         } else {
+            Write-UpdateResult -Status "rollback_failed" -Attempted $attempted -Previous $previous
             Write-Warning "Rollback failed too -- Fig is down; check the repo state by hand."
         }
         exit 1

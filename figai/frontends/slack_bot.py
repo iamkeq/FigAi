@@ -14,6 +14,8 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from figai.agent.session import AgentSession
 from figai.browser_bridge.server import start_bridge_server
 from figai.config import Config
+from figai.lifecycle import build_startup_alerts, mark_clean_stop, mark_started, take_update_result
+from figai.logs_reader import last_error
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
 from figai.persistence.store import JsonStore
@@ -89,6 +91,9 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
 
     store = JsonStore(Path(config.app.state_path))
     state = store.load()
+    data_dir = Path(config.app.state_path).parent
+    unclean_stop = mark_started(data_dir / "figai.running")
+    update_result = take_update_result(data_dir / "update_result.json")
     channel_lister = build_channel_lister(app)
 
     def _on_updated(_old_sha: str, new_sha: str) -> None:
@@ -168,6 +173,7 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         if reply.text == RESTART_SENTINEL:
             say(text="Restarting...", thread_ts=reply.thread_ts) if reply.thread_ts else say("Restarting...")
             logger.info("Restart requested via Slack")
+            mark_clean_stop()
             os.execv(sys.executable, [sys.executable, "-m", "figai"])
             return
         if reply.thread_ts:
@@ -229,6 +235,13 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
             break
         except Exception:
             logger.exception("Failed to post startup message to %s", target)
+
+    for alert in build_startup_alerts(unclean_stop, update_result, last_error()):
+        try:
+            app.client.chat_postMessage(channel=announce_channel if posted else owner_channel, text=alert)
+            logger.info("Posted startup alert: %s", alert[:120])
+        except Exception:
+            logger.exception("Failed to post a startup alert")
 
     if posted:
         current = store.load()
