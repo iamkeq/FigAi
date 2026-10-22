@@ -80,6 +80,8 @@ class VoiceConfig(BaseModel):
     whisper_model: str = "base.en"
     silence_seconds: float = 1.2
     max_command_seconds: float = 15.0
+    chime: bool = True  # play a "bing" when the wake word is heard, so you know when to talk
+    no_speech_timeout_seconds: float = 5.0
 
 
 class BriefingConfig(BaseModel):

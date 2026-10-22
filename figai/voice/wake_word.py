@@ -29,3 +29,10 @@ class OpenWakeWordDetector:
     def score(self, frame: np.ndarray) -> float:
         predictions = self._model.predict(frame)
         return float(predictions.get(self._key, 0.0))
+
+    def reset(self) -> None:
+        """Forget buffered audio so the same utterance can't score twice."""
+        try:
+            self._model.reset()
+        except Exception:  # noqa: BLE001 - older openwakeword builds lack reset(); cooldown still covers it
+            pass

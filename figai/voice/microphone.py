@@ -29,6 +29,14 @@ class MicrophoneAudioSource:
     def read_frame(self) -> np.ndarray:
         return self._queue.get()
 
+    def drain(self) -> None:
+        """Discards audio captured while Fig was busy (transcribing, thinking, the chime)."""
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return
+
     def close(self) -> None:
         self._stream.stop()
         self._stream.close()

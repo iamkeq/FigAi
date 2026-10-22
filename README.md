@@ -190,6 +190,14 @@ down, nothing can post -- check `logs\update.log`.)
 do?" -- the `help` skill answers from the same sheet, which lives in `skills/help/SKILL.md`.
 When you add a feature, add its phrases there; a test fails if a `!command` is missing.
 
+#### Voice
+
+Set `voice.enabled: true` in `config.yaml` and restart. Say the wake word ("hey jarvis" until a
+custom one is trained); Fig plays a two-note **bing**, and that's your cue to talk -- he waits up
+to `no_speech_timeout_seconds` for you to start, records until you pause, then answers with a
+desktop notification. A short cooldown after each command stops one "hey jarvis" from firing
+twice. `voice.chime: false` turns the bing off.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the
