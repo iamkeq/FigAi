@@ -66,6 +66,7 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - Can't change API keys, tokens, passwords, allowlists or limits -- edit those by hand.
 
 ## Web
+- Links come back as short clickable labels (the real URL is underneath); short ones stay as they are.
 - "search the web for <query>" / "read <url>" / "open <url>" / "how much OpenRouter credit is left?"
 
 ## This PC
