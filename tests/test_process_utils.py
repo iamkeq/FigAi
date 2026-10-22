@@ -136,3 +136,17 @@ def test_logging_skips_console_handler_when_stdout_is_not_a_terminal(
     for handler in list(logger.handlers):
         handler.close()
         logger.removeHandler(handler)
+
+
+def test_quiet_run_gives_children_no_stdin(monkeypatch) -> None:
+    import subprocess
+
+    from figai import process_utils
+
+    seen: dict = {}
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: seen.update(k))
+    process_utils.quiet_run(["git", "pull"])
+    assert seen["stdin"] == subprocess.DEVNULL
+    seen.clear()
+    process_utils.quiet_run(["x"], input="data")
+    assert "stdin" not in seen

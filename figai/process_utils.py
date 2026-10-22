@@ -28,6 +28,10 @@ def quiet_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     pythonw a child console program (git, pip) would otherwise flash one."""
     if sys.platform == "win32":
         kwargs.setdefault("creationflags", CREATE_NO_WINDOW)
+    # Under pythonw there is no valid stdin handle to inherit, and handing a bad one
+    # to the child fails with "[WinError 50] The request is not supported".
+    if "input" not in kwargs and "stdin" not in kwargs:
+        kwargs["stdin"] = subprocess.DEVNULL
     return subprocess.run(*args, **kwargs)
 
 
