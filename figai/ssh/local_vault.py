@@ -93,4 +93,4 @@ class LocalVaultBackend:
                 results.append(
                     {"path": str(md_file.relative_to(self.root)), "snippet": snippet(text, query_lower)}
                 )
-        return results
+        return results[:50]

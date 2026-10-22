@@ -4,13 +4,25 @@ to the configured writable subfolder; reads may cover the whole vault."""
 from __future__ import annotations
 
 import posixpath
+import re
+import shlex
 import stat as stat_module
 
 import paramiko
 
 from figai.config import SshHost
-from figai.ssh.client import connect
+from figai.ssh.client import connect, execute
 from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet, trash_path
+
+
+MAX_SEARCH_RESULTS = 50
+SNIPPET_LINE_CHARS = 160
+GREP_TIMEOUT_SECONDS = 60
+GREP_LINE = re.compile(r"^(.*?):(\d+):(.*)$")
+
+
+class GrepUnavailable(Exception):
+    """The server couldn't run grep/find (not installed, not a POSIX shell); use the slow path."""
 
 
 class RemoteVaultBackend:
@@ -172,6 +184,48 @@ class RemoteVaultBackend:
             client.close()
 
     def search(self, query: str) -> list[dict[str, str]]:
+        """Searches note text and file names. Runs grep/find ON the server so only the
+        matches cross the network (one connection, no downloading the whole vault);
+        falls back to reading every note over SFTP if the server can't run them."""
+        client = connect(self.host)
+        try:
+            try:
+                return self._search_with_grep(client, query)
+            except GrepUnavailable:
+                pass
+        finally:
+            client.close()
+        return self._search_by_download(query)
+
+    def _search_with_grep(self, client: paramiko.SSHClient, query: str) -> list[dict[str, str]]:
+        root = shlex.quote(self.remote_root)
+        grep = execute(
+            client,
+            f"{{ command -v xargs >/dev/null && command -v grep >/dev/null; }} || exit 127; "
+            f"cd {root} && find . -type f -name '*.md' -not -path '*/.*' -print0 | "
+            f"xargs -0 -r grep -iF -m1 -n -H -e {shlex.quote(query)} 2>/dev/null | head -n {MAX_SEARCH_RESULTS * 2}",
+            GREP_TIMEOUT_SECONDS,
+        )
+        find = execute(
+            client, f"cd {root} && find . -type f -name '*.md' -not -path '*/.*' 2>/dev/null", GREP_TIMEOUT_SECONDS
+        )
+        if grep.exit_code == 127 or grep.timed_out or find.timed_out or (find.exit_code != 0 and not find.stdout.strip()):
+            raise GrepUnavailable(find.stderr or "find/grep failed or timed out")
+
+        results: dict[str, str] = {}
+        for line in grep.stdout.splitlines():
+            match = GREP_LINE.match(line)
+            if match:
+                path = match.group(1).removeprefix("./")
+                results.setdefault(path, match.group(3).strip()[:SNIPPET_LINE_CHARS])
+        query_lower = query.lower()
+        for line in find.stdout.splitlines():
+            path = line.removeprefix("./")
+            if query_lower in posixpath.basename(path).lower():
+                results.setdefault(path, "(file name matches)")
+        return [{"path": p, "snippet": snip} for p, snip in list(results.items())[:MAX_SEARCH_RESULTS]]
+
+    def _search_by_download(self, query: str) -> list[dict[str, str]]:
         client, sftp = self._sftp()
         try:
             query_lower = query.lower()
@@ -186,7 +240,7 @@ class RemoteVaultBackend:
                             "snippet": snippet(text, query_lower),
                         }
                     )
-            return results
+            return results[:MAX_SEARCH_RESULTS]
         finally:
             sftp.close()
             client.close()
