@@ -202,6 +202,8 @@ class AppConfig(BaseModel):
     vault: VaultConfig
     allowlisted_folders: list[str] = Field(default_factory=list)
     allowlisted_programs: dict[str, str] = Field(default_factory=dict)
+    # Let "open <app>" also launch anything in your Windows Start menu (not just the allowlist above).
+    allow_start_menu_apps: bool = True
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     briefing: BriefingConfig = Field(default_factory=BriefingConfig)

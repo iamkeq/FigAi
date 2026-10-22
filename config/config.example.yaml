@@ -21,6 +21,9 @@ vault:
   local_path: "C:\\Users\\matt\\FigAi\\local_vault"
   index_note: "AI/index.md"
 
+# "open <app>" also launches anything in your Windows Start menu unless you turn this off.
+allow_start_menu_apps: true
+
 # Friendly name -> absolute path to the executable.
 allowlisted_programs:
   steam: "C:\\Program Files (x86)\\Steam\\Steam.exe"

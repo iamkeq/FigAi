@@ -47,7 +47,7 @@ from figai.tools.files import FileSender, register_search_files_tool, register_s
 from figai.tools.media_keys import register_media_key_tool
 from figai.tools.models import ModelManager, register_model_tools
 from figai.tools.notifications import register_notification_tool
-from figai.tools.programs import register_open_program_tool
+from figai.tools.programs import register_close_program_tools, register_open_program_tool
 from figai.tools.slack_post import register_slack_post_tool
 from figai.tools.screenshot import register_screenshot_tool
 from figai.tools.self_update import register_self_update_tools
@@ -107,6 +107,7 @@ def build_tool_registry(
     register_web_search_tool(registry, config)
     register_fetch_url_tool(registry)
     register_open_program_tool(registry, config)
+    register_close_program_tools(registry, config, confirmations)
     register_open_url_tool(registry)
     register_search_files_tool(registry, config)
     register_send_file_tools(registry, config, confirmations, file_sender)
@@ -130,6 +131,7 @@ def build_tool_registry(
         channel_lister,
         config.settings.allowed_slack_user_id,
         confirm=config.app.confirm_slack_posts,
+        chat_channel=config.app.startup_announcement_channel,
     )
     register_self_update_tools(registry, confirmations, on_updated=on_updated)
     register_version_info_tool(registry, config)
