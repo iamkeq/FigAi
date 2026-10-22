@@ -35,14 +35,49 @@ def quiet_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess:
     return subprocess.run(*args, **kwargs)
 
 
+class SafeStream:
+    """Wraps a std stream so a write to a dead handle is dropped instead of raising.
+    With no console, a stray OSError (e.g. [Errno 9] Bad file descriptor from a print() deep
+    inside a library) would otherwise take the whole process down; logging has its own file."""
+
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+
+    def write(self, data: str) -> int:
+        try:
+            return self._stream.write(data)
+        except (OSError, ValueError):
+            return len(data)
+
+    def flush(self) -> None:
+        try:
+            self._stream.flush()
+        except (OSError, ValueError):
+            pass
+
+    def isatty(self) -> bool:
+        try:
+            return bool(self._stream.isatty())
+        except (OSError, ValueError):
+            return False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
+
+
 def ensure_std_streams(log_dir: Path = LOG_DIR) -> None:
     """pythonw.exe has no console, so sys.stdout/sys.stderr are None and anything
     that writes to them (print, tracebacks, tqdm progress bars) is lost or can
     crash. Point them at a log file instead so nothing is lost."""
     if sys.stdout is not None and sys.stderr is not None:
+        # Real streams (a console, or a pipe from a launcher) can still die later; make them forgiving.
+        sys.stdout = sys.stdout if isinstance(sys.stdout, SafeStream) else SafeStream(sys.stdout)
+        sys.stderr = sys.stderr if isinstance(sys.stderr, SafeStream) else SafeStream(sys.stderr)
         return
     log_dir.mkdir(parents=True, exist_ok=True)
-    stream: TextIO = open(log_dir / CONSOLE_LOG_NAME, "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+    stream: TextIO = SafeStream(  # type: ignore[assignment]
+        open(log_dir / CONSOLE_LOG_NAME, "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+    )
     if sys.stdout is None:
         sys.stdout = stream
     if sys.stderr is None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Callable
 
@@ -266,4 +267,9 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
         store.save(current)
 
     logger.info("Connecting to Slack via Socket Mode")
-    SocketModeHandler(app, config.settings.slack_app_token).start()
+    # connect() + wait instead of start(): start() print()s a banner, and a dead stdout (no console,
+    # or a native library that disturbs the std handles) turned that print into a fatal OSError.
+    handler = SocketModeHandler(app, config.settings.slack_app_token)
+    handler.connect()
+    logger.info("Connected to Slack")
+    threading.Event().wait()
