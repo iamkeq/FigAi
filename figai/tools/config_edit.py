@@ -25,7 +25,7 @@ ACTION_TYPE = "config_change"
 
 # Top-level config.yaml sections Fig may edit. Deliberately absent: allowlisted_folders,
 # allowlisted_programs (they bound what Fig can touch), limits, state_path.
-YAML_EDITABLE = {"models", "vault", "voice", "startup_announcement_channel", "browser_bridge_port", "log_level"}
+YAML_EDITABLE = {"models", "vault", "voice", "startup_announcement_channel", "browser_bridge_port", "log_level", "confirm_slack_posts"}
 ENV_EDITABLE_EXACT = {"GMAIL_ADDRESS", "SONARR_URL", "RADARR_URL", "SABNZBD_URL", "OBS_WS_HOST", "OBS_WS_PORT"}
 ENV_EDITABLE_PREFIX = "SSH_HOST_"
 RESTART_NOTE = "Takes effect after a restart (say '!restart')."

@@ -80,6 +80,8 @@ class VoiceConfig(BaseModel):
     whisper_model: str = "base.en"
     silence_seconds: float = 1.2
     max_command_seconds: float = 15.0
+    # Where spoken-command replies go: your Slack DM, a desktop notification, or both.
+    reply_to: Literal["slack", "notification", "both"] = "slack"
     chime: bool = True  # play a "bing" when the wake word is heard, so you know when to talk
     no_speech_timeout_seconds: float = 5.0
 
@@ -207,6 +209,8 @@ class AppConfig(BaseModel):
     # Slack channel (by name) Fig announces "back online" in at startup,
     # including which PR was applied if it just updated itself.
     startup_announcement_channel: str = "general"
+    # post_slack_message asks before posting into a channel; false posts straight away.
+    confirm_slack_posts: bool = True
     # Localhost port the Chrome tab-bridge extension talks to (see browser_extension/).
     browser_bridge_port: int = 8765
 

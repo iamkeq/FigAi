@@ -1,11 +1,11 @@
 """Voice front-end: wake-word -> local speech-to-text -> the same agent core
-used by Slack/CLI. Text-only for now -- Fig doesn't talk back, it acts and
-shows a desktop notification with its reply."""
+used by Slack/CLI (it even shares the Slack session). Fig doesn't talk back out loud: he acts,
+and the reply goes to your Slack DM and/or a desktop notification (voice.reply_to)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from figai.agent.loop import Message
 from figai.agent.session import AgentSession
@@ -24,6 +24,51 @@ def wake_phrase_words(model_name: str) -> tuple[str, ...]:
     return (*VoiceListenerConfig.wake_phrase_words, *[w for w in stem.lower().replace("-", "_").split("_") if w])
 
 
+def build_command_handler(
+    config: Config, session: AgentSession, notifier: Callable[[str, str], None] = default_notifier
+) -> Callable[[str], None]:
+    conversation: list[Message] = []
+    owner = config.settings.allowed_slack_user_id
+    reply_to = config.app.voice.reply_to
+
+    def _deliver(text: str, reply: str) -> None:
+        """Spoken commands answer where you'd expect: in your Slack DM (so the reply is readable
+        and any posting, screenshots or reminders work like they do from Slack), with a desktop
+        notification as the fallback or the extra, per voice.reply_to."""
+        sent = False
+        if reply_to in ("slack", "both") and session.message_sender is not None:
+            try:
+                session.message_sender(owner, f":microphone: _{text}_\n{reply}", None)
+                sent = True
+            except Exception:
+                logger.exception("Could not send the voice reply to Slack")
+        if reply_to in ("notification", "both") or not sent:
+            try:
+                notifier("Fig", reply)
+            except Exception:
+                logger.exception("Failed to show voice reply notification")
+
+    def _on_command(text: str) -> None:
+        logger.info("Voice command: %s", text)
+        conversation.append({"role": "user", "content": text})
+        try:
+            # Same session (and lock) as Slack; tools that need "the current channel" mean your DM.
+            with session.run_lock:
+                session.conversation_context.current_channel = owner
+                session.conversation_context.current_thread_ts = None
+                reply = session.loop.run(conversation)
+        except Exception:
+            logger.exception("Agent loop failed on voice command")
+            conversation.pop()
+            return
+
+        conversation.append({"role": "assistant", "content": reply})
+        logger.info("Voice reply: %s", reply)
+        _deliver(text, reply)
+
+    return _on_command
+
+
 def run_voice_frontend(config: Config, session: Optional[AgentSession] = None) -> None:
     if not config.app.voice.enabled:
         logger.info("Voice front-end disabled (set voice.enabled: true in config.yaml)")
@@ -34,24 +79,7 @@ def run_voice_frontend(config: Config, session: Optional[AgentSession] = None) -
     from figai.voice.wake_word import OpenWakeWordDetector
 
     session = session or AgentSession(config)
-    conversation: list[Message] = []
-
-    def _on_command(text: str) -> None:
-        logger.info("Voice command: %s", text)
-        conversation.append({"role": "user", "content": text})
-        try:
-            reply = session.loop.run(conversation)
-        except Exception:
-            logger.exception("Agent loop failed on voice command")
-            conversation.pop()
-            return
-
-        conversation.append({"role": "assistant", "content": reply})
-        logger.info("Voice reply: %s", reply)
-        try:
-            default_notifier("Fig", reply)
-        except Exception:
-            logger.exception("Failed to show voice reply notification")
+    _on_command = build_command_handler(config, session)
 
     audio_source = MicrophoneAudioSource()
     wake_word_detector = OpenWakeWordDetector(config.app.voice.wake_word_model)

@@ -198,6 +198,12 @@ to `no_speech_timeout_seconds` for you to start, records until you pause, then a
 desktop notification. A short cooldown after each command stops one "hey jarvis" from firing
 twice. `voice.chime: false` turns the bing off.
 
+Voice shares Fig's Slack session, so spoken commands can do everything Slack can -- post to a channel
+("post in general that dinner is at 6"), set reminders (they come to your DM), take screenshots. Replies
+land in your Slack DM by default; `voice.reply_to: notification` or `both` brings back the popup.
+Posting into a channel asks for a yes first (say it after the wake word); `confirm_slack_posts: false`
+skips that.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the
