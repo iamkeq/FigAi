@@ -10,3 +10,5 @@ config/config.yaml
 skills/_pending/*
 !skills/_pending/.gitkeep
 data/figai_state.json
+.env.bak
+config/config.yaml.bak
