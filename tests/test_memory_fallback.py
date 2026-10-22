@@ -28,6 +28,12 @@ class ExplodingRemote:
     def list_dir(self, _path: str = "") -> list[str]:
         raise OSError("Connection refused")
 
+    def move(self, _source: str, _target: str) -> None:
+        raise OSError("Connection refused")
+
+    def trash(self, _path: str) -> str:
+        raise OSError("Connection refused")
+
 
 class WorkingRemote:
     def __init__(self) -> None:
@@ -252,3 +258,60 @@ def test_memory_tools_write_into_new_folder_list_and_report_bad_paths(tmp_path: 
     assert "error" in json.loads(registry.execute("memory_write", json.dumps({"path": "/", "content": "x"})))
     listing = json.loads(registry.execute("memory_list", json.dumps({})))
     assert listing["entries"] == ["a.md"]
+
+
+def _registry(tmp_path: Path, remote) -> tuple[ToolRegistry, LocalVaultBackend]:
+    local = LocalVaultBackend(tmp_path / "vault", writable_subfolder="")
+    config = AppConfig(
+        models={"default_chat": "a/b", "vision": "c/d"},
+        vault={"ssh_host_alias": "v", "remote_path": "/r", "local_path": str(tmp_path / "vault")},
+    )
+
+    class Cfg:
+        app = config
+
+    registry = ToolRegistry()
+    register_memory_tools(registry, Cfg(), remote, local, ConfirmationStore())  # type: ignore[arg-type]
+    return registry, local
+
+
+def _call(registry: ToolRegistry, name: str, **args):
+    return json.loads(registry.execute(name, json.dumps(args)))
+
+
+def test_move_needs_confirmation_then_moves_and_creates_folders(tmp_path: Path) -> None:
+    registry, local = _registry(tmp_path, lambda: ExplodingRemote())
+    local.write("a.md", "hello")
+    proposed = _call(registry, "memory_move", from_path="a.md", to_path="new/folder/b.md")
+    assert proposed["status"] == "awaiting_confirmation"
+    assert (tmp_path / "vault" / "a.md").exists()  # nothing moved yet
+    assert _call(registry, "resolve_memory_change", token=proposed["token"])["status"] == "moved"
+    assert (tmp_path / "vault" / "new" / "folder" / "b.md").read_text() == "hello"
+    assert not (tmp_path / "vault" / "a.md").exists()
+
+
+def test_move_refuses_to_overwrite_and_escape(tmp_path: Path) -> None:
+    registry, local = _registry(tmp_path, lambda: ExplodingRemote())
+    local.write("a.md", "1")
+    local.write("b.md", "2")
+    token = _call(registry, "memory_move", from_path="a.md", to_path="b.md")["token"]
+    assert "error" in _call(registry, "resolve_memory_change", token=token)
+    assert (tmp_path / "vault" / "b.md").read_text() == "2"
+    assert "error" in _call(registry, "memory_move", from_path="a.md", to_path="../out.md")
+
+
+def test_delete_is_recoverable_and_confirm_gated(tmp_path: Path) -> None:
+    registry, local = _registry(tmp_path, lambda: ExplodingRemote())
+    local.write("old/note.md", "bye")
+    proposed = _call(registry, "memory_delete", path="old/note.md")
+    assert (tmp_path / "vault" / "old" / "note.md").exists()
+    result = _call(registry, "resolve_memory_change", token=proposed["token"])
+    assert result["status"] == "deleted"
+    assert not (tmp_path / "vault" / "old" / "note.md").exists()
+    assert (tmp_path / "vault" / result["recoverable_at"]).read_text() == "bye"
+
+
+def test_cannot_delete_root_or_bad_token(tmp_path: Path) -> None:
+    registry, _ = _registry(tmp_path, lambda: ExplodingRemote())
+    assert "error" in _call(registry, "memory_delete", path="/")
+    assert "error" in _call(registry, "resolve_memory_change", token="nope")

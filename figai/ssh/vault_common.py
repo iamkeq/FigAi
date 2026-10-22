@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 
 class VaultPathError(Exception):
     """A vault-relative path escapes the vault root, or a write targets outside
@@ -27,3 +29,13 @@ def normalize_subfolder(value: str) -> str:
 def clean_relative(path: str) -> str:
     """Vault paths are always relative to the vault root; tolerate a leading '/'."""
     return path.strip().replace("\\", "/").lstrip("/")
+
+
+TRASH_FOLDER = ".fig-trash"
+
+
+def trash_path(relative_path: str, now: "datetime | None" = None) -> str:
+    """Where a deleted note goes. Deletes are recoverable moves into a dot-folder
+    (Obsidian ignores dot-folders), never a permanent removal."""
+    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    return f"{TRASH_FOLDER}/{stamp}/{clean_relative(relative_path)}"

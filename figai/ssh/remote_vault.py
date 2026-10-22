@@ -10,7 +10,7 @@ import paramiko
 
 from figai.config import SshHost
 from figai.ssh.client import connect
-from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet
+from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet, trash_path
 
 
 class RemoteVaultBackend:
@@ -76,6 +76,46 @@ class RemoteVaultBackend:
             sftp.mkdir(path)
         except OSError:
             pass  # created concurrently, or already exists
+
+    def _move_resolved(self, source: str, target: str, shown_source: str, shown_target: str) -> None:
+        if source == self.remote_root:
+            raise VaultPathError("The vault root can't be moved or deleted.")
+        client, sftp = self._sftp()
+        try:
+            try:
+                sftp.stat(source)
+            except FileNotFoundError:
+                raise FileNotFoundError(shown_source) from None
+            try:
+                sftp.stat(target)
+            except FileNotFoundError:
+                pass
+            else:
+                raise VaultPathError(f"'{shown_target}' already exists; I won't overwrite it.")
+            self._mkdirs(sftp, posixpath.dirname(target))
+            sftp.posix_rename(source, target)
+        finally:
+            sftp.close()
+            client.close()
+
+    def move(self, source_path: str, target_path: str) -> None:
+        self._move_resolved(
+            self._resolve(source_path, for_write=True),
+            self._resolve(target_path, for_write=True),
+            source_path,
+            target_path,
+        )
+
+    def trash(self, relative_path: str) -> str:
+        """Recoverable delete: moves into .fig-trash/<timestamp>/. Returns the new location."""
+        destination = trash_path(relative_path)
+        self._move_resolved(
+            self._resolve(relative_path, for_write=True),
+            self._resolve(destination, for_write=False),
+            relative_path,
+            destination,
+        )
+        return destination
 
     def list_dir(self, relative_path: str = "") -> list[str]:
         path = self._resolve(relative_path, for_write=False)
