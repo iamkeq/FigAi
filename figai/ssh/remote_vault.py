@@ -37,7 +37,30 @@ class RemoteVaultBackend:
 
     def _sftp(self) -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
         client = connect(self.host)
-        return client, client.open_sftp()
+        sftp = client.open_sftp()
+        try:
+            self._ensure_root(sftp)
+        except Exception:
+            sftp.close()
+            client.close()
+            raise
+        return client, sftp
+
+    def _ensure_root(self, sftp: paramiko.SFTPClient) -> None:
+        """Creates the vault folder itself if it's missing (one level only, so a typo'd
+        path whose parent doesn't exist fails loudly instead of building stray folders)."""
+        try:
+            sftp.stat(self.remote_root)
+            return
+        except FileNotFoundError:
+            pass
+        try:
+            sftp.mkdir(self.remote_root)
+        except OSError as exc:
+            raise VaultPathError(
+                f"The vault folder '{self.remote_root}' doesn't exist on the server and I couldn't create it "
+                f"(check remote_path in config.yaml, and that its parent folder exists): {exc}"
+            ) from exc
 
     def read(self, relative_path: str) -> str:
         path = self._resolve(relative_path, for_write=False)

@@ -283,7 +283,10 @@ def register_memory_tools(
 
     def _search(arguments: dict[str, Any]) -> str:
         query = arguments["query"]
-        results, backend = with_fallback(remote_factory, local, lambda b: b.search(query))
+        try:
+            results, backend = with_fallback(remote_factory, local, lambda b: b.search(query))
+        except (VaultPathError, FileNotFoundError) as exc:
+            return json.dumps({"error": str(exc)})
         return json.dumps({"backend": backend, "results": results})
 
     registry.register(
