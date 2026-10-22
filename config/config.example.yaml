@@ -47,6 +47,7 @@ voice:
   whisper_model: "base.en"
   silence_seconds: 1.2
   max_command_seconds: 15
+  auto_confirm: true             # spoken requests just happen; delete/overwrite/server commands/settings still ask
   chime: true                    # play a "bing" when the wake word is heard -- talk after it
   no_speech_timeout_seconds: 5   # give up if you say nothing for this long after the bing
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from figai.agent.auto_confirm import AutoConfirm
 from figai.agent.client import build_client
 from figai.agent.loop import AgentLoop
 from figai.agent.prompt import build_system_prompt
@@ -162,6 +163,7 @@ class AgentSession:
         self.run_lock = threading.RLock()
         self.loader = SkillLoader(SKILLS_ROOT)
         self.confirmations = ConfirmationStore(timeout_seconds=config.app.limits.confirmation_timeout_seconds)
+        self.auto_confirm = AutoConfirm(self.confirmations, enabled=config.app.voice.auto_confirm)
         self.conversation_context = ConversationContext()
         self.bridge_state = BridgeState()
         self.models = ModelManager(config, apply_chat=lambda model: setattr(self.loop, "model", model))
@@ -232,6 +234,8 @@ class AgentSession:
             self.briefing,
             message_sender,
         )
+
+        registry.result_hook = self.auto_confirm.hook(registry.execute)
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())
         index_content, index_backend = load_index_note(remote_factory, local_vault, config.app.vault.index_note)

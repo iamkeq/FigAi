@@ -201,8 +201,10 @@ twice. `voice.chime: false` turns the bing off.
 Voice shares Fig's Slack session, so spoken commands can do everything Slack can -- post to a channel
 ("post in general that dinner is at 6"), set reminders (they come to your DM), take screenshots. Replies
 land in your Slack DM by default; `voice.reply_to: notification` or `both` brings back the popup.
-Posting into a channel asks for a yes first (say it after the wake word); `confirm_slack_posts: false`
-skips that.
+By voice, asking IS the confirmation: posting, sending a file, moving a note, updating and adding media
+just happen. Deleting or overwriting notes, commands on your servers and changes to Fig's settings still
+ask first. `voice.auto_confirm: false` makes voice ask for everything again. (In Slack text, posts to a
+channel still ask unless `confirm_slack_posts: false`.)
 
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
