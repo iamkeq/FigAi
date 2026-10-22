@@ -68,3 +68,17 @@ def test_missing_vault_root_with_missing_parent_fails_clearly() -> None:
     backend = make_backend()
     with pytest.raises(VaultPathError, match="remote_path"):
         backend._ensure_root(FakeSftp(set()))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("subfolder", ["", "/", ".", "*"])
+def test_whole_vault_writable_on_remote(subfolder: str) -> None:
+    host = SshHost(host="10.0.0.5", user="matt", port=22, key_path="/tmp/key")
+    backend = RemoteVaultBackend(host, remote_root="/media/pool/vault/Obsidian Vault/Dave's PC", writable_subfolder=subfolder)
+    expected = "/media/pool/vault/Obsidian Vault/Dave's PC/CryptoNote.md"
+    assert backend._resolve("CryptoNote.md", for_write=True) == expected
+    assert backend._resolve("/CryptoNote.md", for_write=True) == expected
+    assert backend._resolve("new/dir/a.md", for_write=True).endswith("/Dave's PC/new/dir/a.md")
+    with pytest.raises(VaultPathError):
+        backend._resolve("../x.md", for_write=True)
+    with pytest.raises(VaultPathError):
+        backend._resolve("/", for_write=True)

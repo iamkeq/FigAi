@@ -26,7 +26,7 @@ class RemoteVaultBackend:
             raise VaultPathError(f"Path escapes the vault: {relative_path}")
 
         if for_write:
-            writable_root = posixpath.join(self.remote_root, self.writable_subfolder)
+            writable_root = posixpath.normpath(posixpath.join(self.remote_root, self.writable_subfolder))
             if normalized != writable_root and not normalized.startswith(writable_root + "/"):
                 raise VaultPathError(
                     f"Writes are restricted to '{self.writable_subfolder}/'; got '{relative_path}'"
