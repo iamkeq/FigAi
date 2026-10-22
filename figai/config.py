@@ -82,6 +82,9 @@ class VoiceConfig(BaseModel):
     max_command_seconds: float = 15.0
     # Where spoken-command replies go: your Slack DM, a desktop notification, or both.
     reply_to: Literal["slack", "notification", "both"] = "slack"
+    # Things you ask for out loud just happen (post, send file, move note, update, add media);
+    # delete/overwrite/server commands/settings changes still ask. false = ask for everything.
+    auto_confirm: bool = True
     chime: bool = True  # play a "bing" when the wake word is heard, so you know when to talk
     no_speech_timeout_seconds: float = 5.0
 

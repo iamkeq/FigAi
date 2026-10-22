@@ -34,6 +34,8 @@ class Tool:
 class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
+        # Optional (tool name, result) -> replacement result; see figai/agent/auto_confirm.py.
+        self.result_hook: Callable[[str, str], str | None] | None = None
 
     def register(self, tool: Tool) -> None:
         if tool.name in self._tools:
@@ -68,6 +70,15 @@ class ToolRegistry:
             return json.dumps({"error": str(exc)})
 
         logger.info("Tool %s result=%s", name, _truncate(str(result)))
+        if self.result_hook is not None:
+            try:
+                replacement = self.result_hook(name, result)
+            except Exception:  # noqa: BLE001 - a broken hook must not lose the tool's own result
+                logger.exception("Result hook failed for %s", name)
+                replacement = None
+            if replacement is not None:
+                logger.info("Tool %s result replaced by hook: %s", name, _truncate(replacement))
+                return replacement
         return result
 
 

@@ -4,6 +4,7 @@ and the reply goes to your Slack DM and/or a desktop notification (voice.reply_t
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -53,7 +54,8 @@ def build_command_handler(
         conversation.append({"role": "user", "content": text})
         try:
             # Same session (and lock) as Slack; tools that need "the current channel" mean your DM.
-            with session.run_lock:
+            auto = getattr(session, "auto_confirm", None)
+            with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()):
                 session.conversation_context.current_channel = owner
                 session.conversation_context.current_thread_ts = None
                 reply = session.loop.run(conversation)

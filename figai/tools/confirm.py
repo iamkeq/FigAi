@@ -30,6 +30,11 @@ class ConfirmationStore:
         self._pending[token] = PendingAction(action_type, payload, preview, time.monotonic())
         return token
 
+    def peek_type(self, token: str) -> str | None:
+        """The action type of a pending token (None if unknown), without consuming it."""
+        action = self._pending.get(token)
+        return action.action_type if action else None
+
     def resolve(self, token: str, expected_type: str) -> dict[str, Any]:
         action = self._pending.get(token)
         if action is None:
