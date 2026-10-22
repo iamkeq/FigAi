@@ -198,6 +198,10 @@ to `no_speech_timeout_seconds` for you to start, records until you pause, then a
 desktop notification. A short cooldown after each command stops one "hey jarvis" from firing
 twice. `voice.chime: false` turns the bing off.
 
+Posting phrases ("type in general the word potato", "post in chat that ...", "DM me that ...") are parsed in
+code (figai/voice/shortcuts.py) rather than left to the chat model, so they work even when a small or free model
+would just answer in text instead of calling the tool.
+
 Voice shares Fig's Slack session, so spoken commands can do everything Slack can -- post to a channel
 ("post in general that dinner is at 6"), set reminders (they come to your DM), take screenshots. Replies
 land in your Slack DM by default; `voice.reply_to: notification` or `both` brings back the popup.

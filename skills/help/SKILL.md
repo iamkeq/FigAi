@@ -102,6 +102,7 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 
 ## Voice
 - Say the wake word, wait for the bing, then talk. Replies come to your Slack DM (`voice.reply_to`: slack, notification or both).
+- Posting phrases are matched in code, so they work with any chat model: "type in general the word potato", "post in chat that dinner is at six", "post to the dev channel that the build is done", "DM me that the miner is up".
 - Spoken commands can do everything Slack can: post, remind, screenshot, vault notes.
 - Asking out loud IS the yes: posting, sending a file, moving a note, updating, adding media just happen.
   Still asks first: deleting or overwriting notes, commands on your servers, changing Fig's settings.

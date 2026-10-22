@@ -5,6 +5,7 @@ and the reply goes to your Slack DM and/or a desktop notification (voice.reply_t
 from __future__ import annotations
 
 import contextlib
+import json
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -14,6 +15,7 @@ from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
+from figai.voice.shortcuts import match_slack_post
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
@@ -49,8 +51,44 @@ def build_command_handler(
             except Exception:
                 logger.exception("Failed to show voice reply notification")
 
+    def _channel_names() -> list[str]:
+        lister = getattr(session, "channel_lister", None)
+        if lister is None:
+            return []
+        try:
+            return [c["name"] for c in lister()]
+        except Exception:
+            logger.exception("Could not list Slack channels for voice matching")
+            return []
+
+    def _try_shortcut(text: str) -> bool:
+        """Posting/DM phrasings are handled in code so they work with any chat model."""
+        post = match_slack_post(text, _channel_names())
+        if post is None:
+            return False
+        arguments = json.dumps({"text": post.message, "channel": post.channel})
+        auto = getattr(session, "auto_confirm", None)
+        with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()):
+            result = session.loop.tools.execute("post_slack_message", arguments)
+        logger.info("Voice shortcut post -> %s: %s", post.channel, result[:200])
+        try:
+            data = json.loads(result)
+        except ValueError:
+            data = {}
+        outcome = data.get("result", data)
+        if outcome.get("status") == "posted":
+            reply = f"Posted to {outcome.get('to', post.channel)}: {post.message}"
+        elif data.get("status") == "awaiting_confirmation":
+            reply = f"{data.get('preview')}. Say the wake word, then yes, to send it."
+        else:
+            reply = f"I couldn't post that: {outcome.get('error', result)}"
+        _deliver(text, reply)
+        return True
+
     def _on_command(text: str) -> None:
         logger.info("Voice command: %s", text)
+        if _try_shortcut(text):
+            return
         conversation.append({"role": "user", "content": text})
         try:
             # Same session (and lock) as Slack; tools that need "the current channel" mean your DM.

@@ -104,8 +104,8 @@ def make_voice(reply_to: str = "slack", sender_works: bool = True, reply: str = 
 
 def test_voice_reply_goes_to_the_slack_dm_not_a_popup() -> None:
     handler, sent, notified, seen = make_voice()
-    handler("post in general that dinner is at six")
-    assert sent == [("U_OWNER", ":microphone: _post in general that dinner is at six_\nDone.")]
+    handler("what is the weather like")
+    assert sent == [("U_OWNER", ":microphone: _what is the weather like_\nDone.")]
     assert notified == []
     assert seen == ["U_OWNER"]  # "here" means your DM, so reminders etc. have somewhere to go
 
@@ -172,3 +172,38 @@ def test_chat_alias_follows_the_configured_main_channel() -> None:
     )
     out = json.loads(registry.execute("post_slack_message", json.dumps({"text": "x", "channel": "chat"})))
     assert out["to"] == "#lobby"
+
+
+def test_voice_posting_phrases_skip_the_model_and_call_the_tool_directly() -> None:
+    sent_dm: list[tuple[str, str]] = []
+    calls: list[tuple[str, dict]] = []
+    model_used: list[int] = []
+
+    class Tools:
+        def execute(self, name, arguments):
+            calls.append((name, json.loads(arguments)))
+            return json.dumps({"status": "posted", "to": "#general"})
+
+    class Loop:
+        tools = Tools()
+
+        def run(self, conversation):
+            model_used.append(1)
+            return "should not be used"
+
+    session = SimpleNamespace(
+        loop=Loop(),
+        conversation_context=ConversationContext(),
+        message_sender=lambda ch, text, ts: sent_dm.append((ch, text)),
+        run_lock=threading.RLock(),
+        channel_lister=lambda: [{"id": "C1", "name": "general"}],
+    )
+    config = SimpleNamespace(
+        settings=SimpleNamespace(allowed_slack_user_id="U_OWNER"),
+        app=SimpleNamespace(voice=SimpleNamespace(reply_to="slack")),
+    )
+    handler = build_command_handler(config, session, notifier=lambda *_a: None)
+    handler("Type in general the word potato.")
+    assert calls == [("post_slack_message", {"text": "potato", "channel": "general"})]
+    assert model_used == []
+    assert sent_dm == [("U_OWNER", ":microphone: _Type in general the word potato._\nPosted to #general: potato")]
