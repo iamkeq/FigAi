@@ -142,6 +142,8 @@ class SlackRouter:
             return self.session.health.report()
         if text == "!logs" or text.startswith("!logs ") or text == "!errors":
             return self.logs_text(text)
+        if text == "!help" or text.startswith("!help "):
+            return self.help_text(text.removeprefix("!help").strip())
         if text == "!briefing" or text.startswith("!briefing "):
             return self.briefing_command(text.removeprefix("!briefing").strip())
         if text == "!checks":
@@ -193,6 +195,27 @@ class SlackRouter:
             f"Fig is online. Uptime: {uptime_minutes:.1f} min. "
             f"Model: {self.config.app.models.default_chat}. Last error: {self.last_error or 'none'}"
         )
+
+    def help_text(self, topic: str) -> str:
+        """`!help` shows the whole cheat sheet (the help skill's body); `!help email` just that section."""
+        try:
+            body = self.session.loader.get_instructions("help")
+        except SkillError:
+            return "The help skill isn't installed."
+        parts = re.split(r"(?m)^## ", body)[1:]
+
+        def render(part: str) -> str:
+            heading, _, rest = part.strip().partition("\n")
+            return f"*{heading}*\n{rest}"
+
+        topic = topic.lower().strip()
+        if not topic:
+            return "\n\n".join(["*Fig cheat sheet* (`!help <topic>` for one section)", *map(render, parts)])
+        matches = [p for p in parts if topic in p.split("\n", 1)[0].lower()]
+        if not matches:
+            names = ", ".join(p.split("\n", 1)[0].strip().lower() for p in parts)
+            return f"No help section matches '{topic}'. Topics: {names}"
+        return "\n\n".join(map(render, matches))
 
     def briefing_command(self, argument: str) -> str:
         """`!briefing` (status), `on`, `off`, `now`, `time HH:MM`, `email on|off`."""

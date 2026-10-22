@@ -485,3 +485,37 @@ def test_checks_command(tmp_path: Path) -> None:
     assert router.handle_text("C1", "!checks") == "No scheduled checks."
     router.session.checks.add("miner", "http://x/", 5, "C1")
     assert "miner" in router.handle_text("C1", "!checks")
+
+
+def _help_router(tmp_path: Path) -> SlackRouter:
+    from figai.skills_system.loader import SkillLoader as RealLoader
+
+    router = make_router(tmp_path)
+    router.session.loader = RealLoader(Path(__file__).resolve().parent.parent / "skills")
+    return router
+
+
+def test_help_shows_whole_sheet_or_one_topic(tmp_path: Path) -> None:
+    router = _help_router(tmp_path)
+    everything = router.handle_text("C1", "!help")
+    assert "*Commands*" in everything and "*Email (read-only)*" in everything
+    only_email = router.handle_text("C1", "!help email")
+    assert "summarize my last 5 emails" in only_email and "*Reminders*" not in only_email
+    assert "No help section matches" in router.handle_text("C1", "!help bogus")
+
+
+def test_every_bang_command_is_documented_in_the_help_skill(tmp_path: Path) -> None:
+    import re
+
+    source = (Path(__file__).resolve().parent.parent / "figai" / "frontends" / "slack_router.py").read_text()
+    commands = set(re.findall(r'"(![a-z]+)', source)) - {"!approve"} | {"!approve"}
+    sheet = (Path(__file__).resolve().parent.parent / "skills" / "help" / "SKILL.md").read_text()
+    missing = sorted(c for c in commands if f"`{c}" not in sheet)
+    assert not missing, f"commands missing from skills/help/SKILL.md: {missing}"
+
+
+def test_help_skill_is_discovered_with_a_description_that_triggers_it() -> None:
+    from figai.skills_system.loader import SkillLoader as RealLoader
+
+    skills = {s.name: s.description for s in RealLoader(Path(__file__).resolve().parent.parent / "skills").discover()}
+    assert "help" in skills and "what you can do" in skills["help"]
