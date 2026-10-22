@@ -161,6 +161,7 @@ class AgentSession:
     ) -> None:
         self.config = config
         self.message_sender = message_sender
+        self.channel_lister = channel_lister
         # Slack messages and voice commands share this session, so only one may drive it at a time.
         self.run_lock = threading.RLock()
         self.loader = SkillLoader(SKILLS_ROOT)
