@@ -18,10 +18,12 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - `!briefing` -- status; `on`, `off`, `now`, `time 07:30`, `email on|off`
 - `!checks` -- list scheduled up/down checks
 - `!skills` and `!approve <name>` -- list skills; approve a drafted one
+- `!update` (or `update yourself -y`) -- update right now, no confirmation needed
 - `!restart` -- restart Fig (does not pull new code)
 
 ## Updates
 - "update yourself" -- pull the latest code, reinstall, restart (asks first)
+- "update yourself -y" / `!update` -- same, but skips the yes
 - "what version are you?" / "what was the last PR?"
 
 ## Models

@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from figai.config import AppConfig
 from figai.frontends.slack_router import (
     RESTART_SENTINEL,
@@ -519,3 +521,41 @@ def test_help_skill_is_discovered_with_a_description_that_triggers_it() -> None:
 
     skills = {s.name: s.description for s in RealLoader(Path(__file__).resolve().parent.parent / "skills").discover()}
     assert "help" in skills and "what you can do" in skills["help"]
+
+
+class FakeUpdateTools:
+    def __init__(self, resolve_result: dict) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.resolve_result = resolve_result
+
+    def execute(self, name: str, arguments: str) -> str:
+        import json as _json
+
+        self.calls.append((name, arguments))
+        if name == "propose_update_fig":
+            return _json.dumps({"status": "awaiting_confirmation", "token": "abc123"})
+        return _json.dumps(self.resolve_result)
+
+
+@pytest.mark.parametrize("text", ["!update", "update yourself -y", "Update yourself --yes", "update fig -y"])
+def test_update_shortcut_skips_confirmation(tmp_path: Path, text: str) -> None:
+    router = make_router(tmp_path)
+    tools = FakeUpdateTools({"status": "updated"})
+    router.session.loop.tools = tools
+    reply = router.handle_text("C1", text)
+    assert "Restarting" in reply
+    assert [c[0] for c in tools.calls] == ["propose_update_fig", "resolve_update_fig"]
+    assert '"abc123"' in tools.calls[1][1]
+
+
+def test_update_shortcut_reports_failure(tmp_path: Path) -> None:
+    router = make_router(tmp_path)
+    router.session.loop.tools = FakeUpdateTools({"error": "Update failed, still running the old code: boom"})
+    assert "boom" in router.handle_text("C1", "!update")
+
+
+def test_plain_update_request_still_goes_to_the_model_and_asks_first(tmp_path: Path) -> None:
+    router = make_router(tmp_path, reply="Shall I update?")
+    router.session.loop.tools = FakeUpdateTools({"status": "updated"})
+    assert router.handle_text("C1", "update yourself") == "Shall I update?"
+    assert router.session.loop.tools.calls == []
