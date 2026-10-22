@@ -30,6 +30,7 @@ from figai.ssh.remote_vault import RemoteVaultBackend
 from figai.ssh.run import register_ssh_run_tools
 from figai.tools.channels import ChannelLister, register_list_channels_tool
 from figai.tools.clipboard import register_clipboard_tools
+from figai.tools.config_edit import register_config_edit_tools
 from figai.tools.confirm import ConfirmationStore
 from figai.tools.fetch_url import register_fetch_url_tool
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
@@ -112,6 +113,7 @@ def build_tool_registry(
     register_browser_bridge_tools(registry, bridge_state, enabled=bool(config.settings.browser_bridge_token))
     register_email_tools(registry, config)
     register_model_tools(registry, models)
+    register_config_edit_tools(registry, confirmations)
 
     return registry
 
