@@ -46,7 +46,7 @@ def test_posting_to_a_channel_asks_first_then_posts() -> None:
 def test_posting_to_your_own_dm_needs_no_confirmation() -> None:
     call, sent = make_tool()
     assert call("post_slack_message", text="note to self")["status"] == "posted"
-    assert sent == [("U_OWNER", "note to self", None)]
+    assert sent == [("U_OWNER", "<@U_OWNER> note to self", None)]  # DMs tag you
 
 
 def test_confirmation_can_be_turned_off() -> None:
@@ -145,3 +145,30 @@ def test_voice_agent_failure_is_swallowed_and_not_remembered() -> None:
     handler = build_command_handler(config, session, notifier=lambda *_a: None)
     handler("hello")  # must not raise
     assert sent == []
+
+
+@pytest.mark.parametrize("phrase", ["chat", "the chat", "General Chat", "main chat"])
+def test_in_chat_means_the_general_channel(phrase: str) -> None:
+    call, sent = make_tool(confirm=False)
+    assert call("post_slack_message", text="hello", channel=phrase)["to"] == "#general"
+    assert sent == [("C_GEN", "hello", None)]
+
+
+@pytest.mark.parametrize("phrase", ["me", "DM", "dm me", "my dm", ""])
+def test_dm_requests_tag_you_once(phrase: str) -> None:
+    call, sent = make_tool()
+    assert call("post_slack_message", text="the info you wanted", channel=phrase)["to"] == "your DM"
+    call("post_slack_message", text="<@U_OWNER> already tagged")
+    assert sent[0] == ("U_OWNER", "<@U_OWNER> the info you wanted", None)
+    assert sent[1][1] == "<@U_OWNER> already tagged"
+
+
+def test_chat_alias_follows_the_configured_main_channel() -> None:
+    sent: list = []
+    registry = ToolRegistry()
+    register_slack_post_tool(
+        registry, ConfirmationStore(), lambda *a: sent.append(a), lambda: [{"id": "C_LOBBY", "name": "lobby"}],
+        "U_OWNER", confirm=False, chat_channel="lobby",
+    )
+    out = json.loads(registry.execute("post_slack_message", json.dumps({"text": "x", "channel": "chat"})))
+    assert out["to"] == "#lobby"

@@ -73,7 +73,10 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - "take a screenshot" / "what's on my clipboard?" / "copy <text> to the clipboard"
 - "what window is active?" / "battery?" / "network status" / "system status" / "top 5 programs by memory"
 - "show a notification: <text>" / "play", "pause", "next track", "volume up", "mute"
-- "open <program>" (only programs on the allowlist) / "find files named <text>"
+- "open spotify" / "open calculator" / "open steam" -- allowlisted programs, then anything in your Start menu
+- "close spotify" / "close chrome" -- closes it politely (like clicking X); if it won't close, "force close it" (always asks)
+- Never closes system processes or Fig himself
+- "find files named <text>"
 - "send me <file>" (asks first)
 
 ## Browser
@@ -93,6 +96,8 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 
 ## Posting to Slack
 - "post in general that dinner is at 6" / "tell #dev the build is done"
+- "in chat" / "in the chat" / "in general chat" all mean #general
+- "DM me ..." / "message me ..." / "tell me ..." -- a direct message that tags you
 - In Slack text, channel posts ask for a yes first (`confirm_slack_posts: false` skips it). By voice they just happen.
 
 ## Voice

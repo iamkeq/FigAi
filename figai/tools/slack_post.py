@@ -17,6 +17,9 @@ logger = get_logger("tools.slack_post")
 ACTION_TYPE = "slack_post"
 MAX_TEXT_CHARS = 3000
 MessageSender = Callable[[str, str, "str | None"], None]
+# Spoken shorthand for the main channel: "type that in chat", "post in the general chat"
+CHAT_ALIASES = {"chat", "the chat", "general chat", "the general chat", "main chat", "the main chat", "group chat"}
+DM_ALIASES = {"me", "dm", "my dm", "a dm", "dm me", "direct message"}
 
 
 def register_slack_post_tool(
@@ -26,12 +29,15 @@ def register_slack_post_tool(
     channel_lister: ChannelLister | None,
     owner_channel: str,
     confirm: bool = True,
+    chat_channel: str = "general",
 ) -> None:
     def _resolve_channel(channel: str | None) -> tuple[str, str]:
         """(channel id, label shown to the user). Default is the owner's DM."""
-        if not channel or channel.strip().lower() in ("me", "dm", "my dm"):
+        if not channel or channel.strip().lower() in DM_ALIASES:
             return owner_channel, "your DM"
         channel = channel.strip()
+        if channel.lower() in CHAT_ALIASES:
+            channel = chat_channel
         if channel[:1] in ("C", "G", "D", "U") and channel.isalnum() and channel.upper() == channel:
             return channel, channel  # already an ID
         if channel_lister is None:
@@ -59,6 +65,8 @@ def register_slack_post_tool(
         except ValueError as exc:
             return json.dumps({"error": str(exc)})
         thread_ts = arguments.get("thread_ts") or None
+        if channel_id == owner_channel and f"<@{owner_channel}>" not in text:
+            text = f"<@{owner_channel}> {text}"  # a DM from Fig tags you, so it pings
 
         if not confirm or channel_id == owner_channel:
             try:
@@ -84,10 +92,12 @@ def register_slack_post_tool(
         Tool(
             name="post_slack_message",
             description=(
-                "Post a message to a Slack channel (by name like 'general' or by ID) or to the user's DM "
-                "(omit channel). Use when the user asks you to post/say/announce something somewhere -- "
-                "from Slack or by voice. Posting to a channel asks the user to confirm first; posting to "
-                "their own DM does not. The text is what gets posted, so write it as the final message."
+                "Post a message to a Slack channel (by name like 'general' or by ID) or to the user's DM. "
+                "Use when the user asks you to post/type/say/announce something somewhere. Shorthand: 'in chat', "
+                "'in the chat', 'in general chat' ALL mean the general channel -- pass channel 'general'. "
+                "'DM me', 'message me', 'tell me' mean a DM -- pass channel 'me'; DMs tag the user. Never leave "
+                "channel empty when the user named a place. The text is what gets posted, so write it as the "
+                "final message."
             ),
             parameters={
                 "type": "object",

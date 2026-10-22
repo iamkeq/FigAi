@@ -206,6 +206,15 @@ just happen. Deleting or overwriting notes, commands on your servers and changes
 ask first. `voice.auto_confirm: false` makes voice ask for everything again. (In Slack text, posts to a
 channel still ask unless `confirm_slack_posts: false`.)
 
+#### Opening and closing apps
+
+"Open spotify" launches it from `allowlisted_programs` first, then from anything in your Windows Start
+menu (`allow_start_menu_apps: false` limits it to the allowlist). "Close spotify" asks the app to close
+the way clicking its X does, so unsaved work still gets its prompt. A stuck app can be force-killed, but
+that always asks first, even by voice. System processes and Fig himself are never closed.
+
+In Slack replies "in chat" means #general, and "DM me" posts a direct message that tags you.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the
