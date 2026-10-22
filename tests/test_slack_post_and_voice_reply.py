@@ -12,6 +12,7 @@ from figai.reminders.context import ConversationContext
 from figai.tools.confirm import ConfirmationStore
 from figai.tools.slack_post import register_slack_post_tool
 
+CONV = SimpleNamespace(max_messages=30, voice_idle_minutes=10, dm_idle_minutes=120)
 CHANNELS = [{"id": "C_GEN", "name": "general"}, {"id": "C_DEV", "name": "dev"}]
 
 
@@ -96,7 +97,7 @@ def make_voice(reply_to: str = "slack", sender_works: bool = True, reply: str = 
     )
     config = SimpleNamespace(
         settings=SimpleNamespace(allowed_slack_user_id="U_OWNER"),
-        app=SimpleNamespace(voice=SimpleNamespace(reply_to=reply_to)),
+        app=SimpleNamespace(voice=SimpleNamespace(reply_to=reply_to), conversation=CONV),
     )
     handler = build_command_handler(config, session, notifier=lambda title, msg: notified.append(msg))
     return handler, sent, notified, seen_channel
@@ -140,7 +141,7 @@ def test_voice_agent_failure_is_swallowed_and_not_remembered() -> None:
     )
     config = SimpleNamespace(
         settings=SimpleNamespace(allowed_slack_user_id="U_OWNER"),
-        app=SimpleNamespace(voice=SimpleNamespace(reply_to="slack")),
+        app=SimpleNamespace(voice=SimpleNamespace(reply_to="slack"), conversation=CONV),
     )
     handler = build_command_handler(config, session, notifier=lambda *_a: None)
     handler("hello")  # must not raise
@@ -200,7 +201,7 @@ def test_voice_posting_phrases_skip_the_model_and_call_the_tool_directly() -> No
     )
     config = SimpleNamespace(
         settings=SimpleNamespace(allowed_slack_user_id="U_OWNER"),
-        app=SimpleNamespace(voice=SimpleNamespace(reply_to="slack")),
+        app=SimpleNamespace(voice=SimpleNamespace(reply_to="slack"), conversation=CONV),
     )
     handler = build_command_handler(config, session, notifier=lambda *_a: None)
     handler("Type in general the word potato.")

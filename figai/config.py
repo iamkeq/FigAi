@@ -100,6 +100,14 @@ class BriefingConfig(BaseModel):
     email_limit: int = Field(default=15, ge=1, le=25)
 
 
+class ConversationConfig(BaseModel):
+    """How much history Fig re-sends to the model (it's included in every request)."""
+
+    max_messages: int = 30  # per conversation; the oldest are dropped first. 0 = unlimited
+    voice_idle_minutes: float = 10  # a voice session quiet this long starts fresh. 0 = never
+    dm_idle_minutes: float = 120  # same for your Slack DM (channel threads keep going). 0 = never
+
+
 class LimitsConfig(BaseModel):
     max_agent_iterations: int = 10
     max_send_file_mb: int = 25
@@ -205,6 +213,7 @@ class AppConfig(BaseModel):
     # Let "open <app>" also launch anything in your Windows Start menu (not just the allowlist above).
     allow_start_menu_apps: bool = True
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
+    conversation: ConversationConfig = Field(default_factory=ConversationConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
     briefing: BriefingConfig = Field(default_factory=BriefingConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

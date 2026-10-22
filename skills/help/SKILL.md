@@ -19,6 +19,7 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - `!checks` -- list scheduled up/down checks
 - `!skills` and `!approve <name>` -- list skills; approve a drafted one
 - `!update` (or `update yourself -y`) -- update right now, no confirmation needed
+- `!new` (or `!reset`) -- forget this conversation and start fresh
 - `!restart` -- restart Fig (does not pull new code)
 
 ## Updates
@@ -107,6 +108,11 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - Asking out loud IS the yes: posting, sending a file, moving a note, updating, adding media just happen.
   Still asks first: deleting or overwriting notes, commands on your servers, changing Fig's settings.
   (`voice.auto_confirm: false` makes voice ask for everything.)
+
+## Fresh starts
+- Long conversations are trimmed (oldest messages first) and idle ones start over: voice after 10 minutes quiet, your DM after 2 hours.
+- By voice: "start over" / "new session" / "forget everything". In Slack: `!new`.
+- Tune in config.yaml under `conversation:` (max_messages, voice_idle_minutes, dm_idle_minutes; 0 = off).
 
 ## Slack basics
 - DM Fig anytime. In a channel, @-mention him and keep talking in that thread.

@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from figai.agent.history import is_idle, trim_history
 from figai.agent.loop import Message
 from figai.config import Config
 from figai.linkify import shorten_links
@@ -56,6 +57,8 @@ class SlackRouter:
     start_time: float = field(default_factory=time.monotonic)
     last_error: str | None = None
     conversations: dict[str, list[Message]] = field(default_factory=dict)
+    last_active: dict[str, float] = field(default_factory=dict)
+    clock: Callable[[], float] = time.time
     active_threads: set[tuple[str, str]] = field(default_factory=set)
     on_change: Hook = None
 
@@ -136,11 +139,13 @@ class SlackRouter:
         return {
             "active_threads": [list(pair) for pair in self.active_threads],
             "conversations": self.conversations,
+            "last_active": self.last_active,
         }
 
     def restore_state(self, state: dict[str, Any]) -> None:
         self.active_threads = {tuple(pair) for pair in state.get("active_threads", [])}
         self.conversations = state.get("conversations", {})
+        self.last_active = state.get("last_active", {})
 
     def handle_text(self, conversation_key: str, text: str) -> str | None:
         if text == "!status":
@@ -167,8 +172,21 @@ class SlackRouter:
         if text == "!model" or text.startswith("!model "):
             return self.model_command(text.removeprefix("!model").strip())
 
+        if text in ("!new", "!reset"):
+            self.conversations.pop(conversation_key, None)
+            return "Fresh start -- I've forgotten this conversation."
+
+        settings = self.config.app.conversation
+        now = self.clock()
+        is_dm = ":" not in conversation_key  # channel threads are keyed "channel:thread_ts"
+        if is_dm and is_idle(self.last_active.get(conversation_key), now, settings.dm_idle_minutes):
+            logger.info("DM conversation idle for over %s min -- starting fresh", settings.dm_idle_minutes)
+            self.conversations.pop(conversation_key, None)
+        self.last_active[conversation_key] = now
+
         conversation = self.conversations.setdefault(conversation_key, [])
         conversation.append({"role": "user", "content": text})
+        trim_history(conversation, settings.max_messages)
         try:
             reply = self.session.loop.run(conversation)
         except Exception as exc:  # noqa: BLE001 - one bad turn must not kill the bot
