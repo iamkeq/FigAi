@@ -25,6 +25,9 @@ class ExplodingRemote:
     def search(self, _query: str) -> list[dict[str, str]]:
         raise OSError("Connection refused")
 
+    def list_dir(self, _path: str = "") -> list[str]:
+        raise OSError("Connection refused")
+
 
 class WorkingRemote:
     def __init__(self) -> None:
@@ -201,3 +204,51 @@ def test_resolve_memory_write_without_prior_proposal_returns_error(tmp_path: Pat
     result = json.loads(registry.execute("resolve_memory_write", json.dumps({"token": "madeup"})))
 
     assert "error" in result
+
+
+class MissingNoteRemote(WorkingRemote):
+    def read(self, path: str) -> str:
+        raise FileNotFoundError(path)
+
+    def list_dir(self, path: str = "") -> list[str]:
+        return ["homelab/", "notes.md"]
+
+
+def test_missing_remote_note_is_not_treated_as_unreachable(tmp_path: Path) -> None:
+    local = local_vault(tmp_path)
+    local.write("AI/index.md", "local content")
+    with pytest.raises(FileNotFoundError):
+        with_fallback(lambda: MissingNoteRemote(), local, lambda b: b.read("AI/index.md"))
+
+
+@pytest.mark.parametrize("subfolder", ["", "/", ".", "*"])
+def test_whole_vault_writable_and_leading_slash_tolerated(tmp_path: Path, subfolder: str) -> None:
+    local = LocalVaultBackend(tmp_path / "vault", writable_subfolder=subfolder)
+    local.write("/homelab/FigAxe2.md", "hi")
+    assert (tmp_path / "vault" / "homelab" / "FigAxe2.md").read_text() == "hi"
+    with pytest.raises(VaultPathError):
+        local.write("/", "x")
+    with pytest.raises(VaultPathError):
+        local.write("../escape.md", "x")
+
+
+def test_memory_tools_write_into_new_folder_list_and_report_bad_paths(tmp_path: Path) -> None:
+    local = LocalVaultBackend(tmp_path / "vault", writable_subfolder="")
+    config = AppConfig(
+        models={"default_chat": "a/b", "vision": "c/d"},
+        vault={"ssh_host_alias": "v", "remote_path": "/r", "local_path": str(tmp_path / "vault")},
+    )
+    config.vault.remote_writable_subfolder = ""
+
+    class Cfg:
+        app = config
+
+    registry = ToolRegistry()
+    register_memory_tools(registry, Cfg(), lambda: ExplodingRemote(), local, ConfirmationStore())  # type: ignore[arg-type]
+
+    # remote is down, so everything lands in the local vault (which does the path checks)
+    written = json.loads(registry.execute("memory_write", json.dumps({"path": "/a.md", "content": "x"})))
+    assert written == {"status": "written", "backend": "local"}
+    assert "error" in json.loads(registry.execute("memory_write", json.dumps({"path": "/", "content": "x"})))
+    listing = json.loads(registry.execute("memory_list", json.dumps({})))
+    assert listing["entries"] == ["a.md"]

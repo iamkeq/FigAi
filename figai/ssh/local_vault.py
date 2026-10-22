@@ -5,16 +5,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from figai.ssh.vault_common import VaultPathError, snippet
+from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet
 
 
 class LocalVaultBackend:
     def __init__(self, root: Path, writable_subfolder: str) -> None:
         self.root = root
-        self.writable_subfolder = writable_subfolder
+        self.writable_subfolder = normalize_subfolder(writable_subfolder)
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _resolve(self, relative_path: str, *, for_write: bool) -> Path:
+        relative_path = clean_relative(relative_path)
         root_resolved = self.root.resolve()
         candidate = (self.root / relative_path).resolve()
         if candidate != root_resolved and root_resolved not in candidate.parents:
@@ -26,6 +27,8 @@ class LocalVaultBackend:
                 raise VaultPathError(
                     f"Writes are restricted to '{self.writable_subfolder}/'; got '{relative_path}'"
                 )
+            if candidate == root_resolved or candidate.is_dir():
+                raise VaultPathError(f"'{relative_path}' is a folder; give a note path like 'folder/note.md'")
         return candidate
 
     def read(self, relative_path: str) -> str:
@@ -38,6 +41,16 @@ class LocalVaultBackend:
         path = self._resolve(relative_path, for_write=True)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+
+    def list_dir(self, relative_path: str = "") -> list[str]:
+        path = self._resolve(relative_path, for_write=False)
+        if not path.is_dir():
+            raise FileNotFoundError(relative_path)
+        return sorted(
+            (f"{entry.name}/" if entry.is_dir() else entry.name)
+            for entry in path.iterdir()
+            if not entry.name.startswith(".")
+        )
 
     def list_all_markdown(self) -> dict[str, str]:
         return {

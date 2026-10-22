@@ -10,16 +10,17 @@ import paramiko
 
 from figai.config import SshHost
 from figai.ssh.client import connect
-from figai.ssh.vault_common import VaultPathError, snippet
+from figai.ssh.vault_common import VaultPathError, clean_relative, normalize_subfolder, snippet
 
 
 class RemoteVaultBackend:
     def __init__(self, host: SshHost, remote_root: str, writable_subfolder: str) -> None:
         self.host = host
         self.remote_root = remote_root.rstrip("/") or "/"
-        self.writable_subfolder = writable_subfolder
+        self.writable_subfolder = normalize_subfolder(writable_subfolder)
 
     def _resolve(self, relative_path: str, *, for_write: bool) -> str:
+        relative_path = clean_relative(relative_path)
         normalized = posixpath.normpath(posixpath.join(self.remote_root, relative_path))
         if normalized != self.remote_root and not normalized.startswith(self.remote_root + "/"):
             raise VaultPathError(f"Path escapes the vault: {relative_path}")
@@ -30,6 +31,8 @@ class RemoteVaultBackend:
                 raise VaultPathError(
                     f"Writes are restricted to '{self.writable_subfolder}/'; got '{relative_path}'"
                 )
+            if normalized == self.remote_root:
+                raise VaultPathError(f"'{relative_path}' is a folder; give a note path like 'folder/note.md'")
         return normalized
 
     def _sftp(self) -> tuple[paramiko.SSHClient, paramiko.SFTPClient]:
@@ -73,6 +76,23 @@ class RemoteVaultBackend:
             sftp.mkdir(path)
         except OSError:
             pass  # created concurrently, or already exists
+
+    def list_dir(self, relative_path: str = "") -> list[str]:
+        path = self._resolve(relative_path, for_write=False)
+        client, sftp = self._sftp()
+        try:
+            try:
+                entries = sftp.listdir_attr(path)
+            except FileNotFoundError:
+                raise FileNotFoundError(relative_path) from None
+            return sorted(
+                f"{e.filename}/" if stat_module.S_ISDIR(e.st_mode or 0) else e.filename
+                for e in entries
+                if not e.filename.startswith(".")
+            )
+        finally:
+            sftp.close()
+            client.close()
 
     def list_all_markdown(self) -> dict[str, str]:
         client, sftp = self._sftp()
