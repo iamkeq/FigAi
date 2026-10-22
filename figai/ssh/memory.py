@@ -12,7 +12,7 @@ from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.ssh.local_vault import LocalVaultBackend
 from figai.ssh.remote_vault import RemoteVaultBackend
-from figai.ssh.vault_common import VaultPathError
+from figai.ssh.vault_common import VaultPathError, normalize_subfolder
 from figai.tools.confirm import ConfirmationStore
 
 logger = get_logger("ssh.memory")
@@ -28,12 +28,13 @@ def with_fallback(
     """Runs `operation` against the remote vault; on any connectivity failure
     (including a missing/misconfigured host), falls back to the local vault for
     that one call. A VaultPathError is a rejection, not a connectivity failure,
-    so it propagates instead of silently retrying against the other backend."""
+    so it propagates instead of silently retrying against the other backend. Same for a
+    missing note (FileNotFoundError is an OSError, but the vault answered)."""
     try:
         remote = remote_factory()
         return operation(remote), "remote"
-    except VaultPathError:
-        raise
+    except (VaultPathError, FileNotFoundError):
+        raise  # rejections and "no such note" are answers, not connectivity failures
     except OSError as exc:
         logger.warning("Remote vault unreachable (%s); falling back to local vault", exc)
         return operation(local), "local"
@@ -55,6 +56,11 @@ def _note_exists(remote_factory: RemoteFactory, local: LocalVaultBackend, path: 
         return True
     except FileNotFoundError:
         return False
+
+
+def _writable_hint(subfolder: str) -> str:
+    cleaned = normalize_subfolder(subfolder)
+    return f"Restricted to the '{cleaned}/' subfolder." if cleaned else "Allowed anywhere in the vault."
 
 
 def register_memory_tools(
@@ -95,7 +101,11 @@ def register_memory_tools(
         path = arguments["path"]
         content = arguments["content"]
 
-        if _note_exists(remote_factory, local, path):
+        try:
+            exists = _note_exists(remote_factory, local, path)
+        except VaultPathError as exc:
+            return json.dumps({"error": str(exc)})
+        if exists:
             preview = f"Overwrite existing vault note '{path}'"
             token = confirmations.propose(OVERWRITE_ACTION_TYPE, {"path": path, "content": content}, preview)
             logger.info("Proposed memory overwrite token=%s path=%s", token, path)
@@ -117,8 +127,9 @@ def register_memory_tools(
         Tool(
             name="memory_write",
             description=(
-                f"Write a NEW note into the vault. Restricted to the "
-                f"'{config.app.vault.remote_writable_subfolder}/' subfolder. If the note already "
+                f"Write a NEW note into the vault at a path relative to the vault root with no leading "
+                f"slash (e.g. 'homelab/FigAxe2.md'; use memory_list to find folders). "
+                f"{_writable_hint(config.app.vault.remote_writable_subfolder)} If the note already "
                 "exists, this instead returns a confirmation token -- use resolve_memory_write "
                 "after the user explicitly confirms the overwrite."
             ),
@@ -148,6 +159,27 @@ def register_memory_tools(
             ),
             parameters={"type": "object", "properties": {"token": {"type": "string"}}, "required": ["token"]},
             handler=_resolve_write,
+        )
+    )
+
+    def _list(arguments: dict[str, Any]) -> str:
+        path = arguments.get("path", "")
+        try:
+            entries, backend = with_fallback(remote_factory, local, lambda b: b.list_dir(path))
+        except (VaultPathError, FileNotFoundError) as exc:
+            return json.dumps({"error": f"No such folder or not allowed: {exc}"})
+        return json.dumps({"backend": backend, "path": path or "/", "entries": entries[:200]})
+
+    registry.register(
+        Tool(
+            name="memory_list",
+            description=(
+                "List the files and folders directly inside a vault folder (path relative to the vault root, "
+                "no leading slash; omit for the root). Folders end with '/'. Use this to find where a note "
+                "belongs before memory_write."
+            ),
+            parameters={"type": "object", "properties": {"path": {"type": "string"}}},
+            handler=_list,
         )
     )
 
