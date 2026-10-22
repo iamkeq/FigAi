@@ -142,6 +142,11 @@ class SlackRouter:
             return self.session.health.report()
         if text == "!logs" or text.startswith("!logs ") or text == "!errors":
             return self.logs_text(text)
+        if text == "!briefing" or text.startswith("!briefing "):
+            return self.briefing_command(text.removeprefix("!briefing").strip())
+        if text == "!checks":
+            checks = self.session.checks.list()
+            return "\n".join(self.session.checks.describe(c) for c in checks) or "No scheduled checks."
         if text == "!skills":
             return self.skills_text()
         if text.startswith("!approve "):
@@ -188,6 +193,30 @@ class SlackRouter:
             f"Fig is online. Uptime: {uptime_minutes:.1f} min. "
             f"Model: {self.config.app.models.default_chat}. Last error: {self.last_error or 'none'}"
         )
+
+    def briefing_command(self, argument: str) -> str:
+        """`!briefing` (status), `on`, `off`, `now`, `time HH:MM`, `email on|off`."""
+        manager = self.session.briefing
+        words = argument.lower().split()
+        try:
+            if not words:
+                return manager.status()
+            if words[0] == "on":
+                manager.configure(enabled=True)
+            elif words[0] == "off":
+                manager.configure(enabled=False)
+            elif words[0] == "now":
+                manager.send_now()
+                return "Sent."
+            elif words[0] == "time" and len(words) == 2:
+                manager.configure(time=words[1])
+            elif words[0] == "email" and len(words) == 2 and words[1] in ("on", "off"):
+                manager.configure(include_email=words[1] == "on")
+            else:
+                return "Usage: `!briefing` | `on` | `off` | `now` | `time 07:30` | `email on|off`"
+        except ValueError as exc:
+            return str(exc)
+        return manager.status()
 
     def logs_text(self, command: str) -> str:
         """`!logs [errors|warnings|tools|all] [count]`; `!errors` is `!logs errors`."""

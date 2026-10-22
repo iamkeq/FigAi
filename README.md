@@ -167,6 +167,22 @@ Stopping him with `figai.ps1 stop` or the update script is deliberate and does n
 trigger the "unexpected stop" warning. (If an update *and* its rollback both leave Fig
 down, nothing can post -- check `logs\update.log`.)
 
+#### Daily briefing, scheduled checks, fast search
+
+- **Briefing:** `!briefing on` sends one message each morning (default 07:30 local time):
+  today's reminders, anything down, an email summary, vault notes mentioning today's date or
+  `#today`, and any health problems. Only the email summary uses model tokens (one call to
+  the email model), so it's cheap. `!briefing off` stops it, `!briefing email off` makes it
+  free, `!briefing time 06:45` changes the time, `!briefing now` sends one immediately.
+  If the PC was off at briefing time it's sent when Fig starts, up to 6 hours late.
+- **Checks:** "keep an eye on http://192.168.50.57/ and call it FigAxe2" adds a check (HTTP
+  URL, or host:port) that runs every 15 minutes by default. Fig speaks up only when it goes
+  down (after 2 failures in a row) and when it recovers. `!checks` lists them; ask him to
+  remove or run one.
+- **Vault search:** `memory_search` now runs grep on the server and only sends back the
+  matches, instead of downloading every note. It falls back to the old way if the server
+  has no grep/xargs.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the

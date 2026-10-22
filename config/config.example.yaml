@@ -62,3 +62,13 @@ startup_announcement_channel: "general"
 # Localhost port the Chrome tab-bridge extension talks to. Must match the Port
 # on the extension's options page.
 browser_bridge_port: 8765
+
+# Daily morning briefing (off by default). Control it from chat: !briefing on|off|now|time 07:30|email on|off.
+# Everything in it is a plain lookup except one email-model call a day, so it's cheap; set
+# include_email: false to make it cost nothing. Chat changes are remembered across restarts.
+briefing:
+  enabled: false
+  time: "07:30"          # local 24h time
+  # channel: "C0123456789"  # Slack channel ID; default is your DM
+  include_email: true
+  email_limit: 15
