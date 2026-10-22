@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from figai.agent.loop import Message
 from figai.config import Config
+from figai.linkify import shorten_links
 from figai.logging_setup import get_logger
 from figai.skills_system.loader import SkillError
 
@@ -123,7 +124,7 @@ class SlackRouter:
             on_done()
         if self.on_change:
             self.on_change()
-        return SlackReply(reply_text, thread_ts=thread_ts)
+        return SlackReply(shorten_links(reply_text), thread_ts=thread_ts)
 
     def to_state(self) -> dict[str, Any]:
         return {

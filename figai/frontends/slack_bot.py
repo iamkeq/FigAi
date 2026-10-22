@@ -14,6 +14,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from figai.agent.session import AgentSession
 from figai.browser_bridge.server import start_bridge_server
 from figai.config import Config
+from figai.linkify import shorten_links
 from figai.lifecycle import build_startup_alerts, mark_clean_stop, mark_started, take_update_result
 from figai.logs_reader import last_error
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
@@ -43,6 +44,7 @@ def build_file_sender(app: App, channel: str):
 
 def build_message_sender(app: App):
     def _send(channel: str, text: str, thread_ts: str | None) -> None:
+        text = shorten_links(text)
         if thread_ts:
             app.client.chat_postMessage(channel=channel, text=text, thread_ts=thread_ts)
         else:
