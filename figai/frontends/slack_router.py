@@ -7,6 +7,7 @@ in it -- it ignores ordinary channel chatter it wasn't addressed in."""
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass, field
@@ -20,6 +21,9 @@ from figai.skills_system.loader import SkillError
 logger = get_logger("slack")
 
 RESTART_SENTINEL = "__RESTART__"
+# "update yourself -y" (also --yes, or just !update) skips the confirmation round trip. Matched in
+# code, on the owner's own message, so it never depends on the model deciding to skip the check.
+UPDATE_NOW_PATTERN = re.compile(r"^(?:!update|(?:update yourself|update fig)\s+(?:-y|--yes))$", re.IGNORECASE)
 MENTION_PATTERN = re.compile(r"<@[A-Z0-9]+>")
 Hook = Callable[[], None] | None
 
@@ -142,6 +146,8 @@ class SlackRouter:
             return self.session.health.report()
         if text == "!logs" or text.startswith("!logs ") or text == "!errors":
             return self.logs_text(text)
+        if UPDATE_NOW_PATTERN.match(text):
+            return self.update_now()
         if text == "!help" or text.startswith("!help "):
             return self.help_text(text.removeprefix("!help").strip())
         if text == "!briefing" or text.startswith("!briefing "):
@@ -195,6 +201,18 @@ class SlackRouter:
             f"Fig is online. Uptime: {uptime_minutes:.1f} min. "
             f"Model: {self.config.app.models.default_chat}. Last error: {self.last_error or 'none'}"
         )
+
+    def update_now(self) -> str:
+        """Runs the same propose -> resolve steps as "update yourself", back to back."""
+        tools = self.session.loop.tools
+        try:
+            proposed = json.loads(tools.execute("propose_update_fig", "{}"))
+            result = json.loads(tools.execute("resolve_update_fig", json.dumps({"token": proposed["token"]})))
+        except (KeyError, ValueError) as exc:
+            return f"Couldn't start the update: {exc}"
+        if result.get("status") == "updated":
+            return "Pulled the latest code. Restarting in a few seconds..."
+        return str(result.get("error", result))
 
     def help_text(self, topic: str) -> str:
         """`!help` shows the whole cheat sheet (the help skill's body); `!help email` just that section."""
