@@ -51,3 +51,19 @@ def match_slack_post(text: str, channel_names: list[str] | tuple[str, ...] = ())
         message = _clean(dm.group("message"))
         return SlackPost("me", message) if message else None
     return None
+
+
+RESET_PHRASES = {
+    "new session", "new conversation", "start over", "start a new session", "start a new conversation",
+    "start a fresh conversation", "reset", "reset the conversation", "reset the session", "reset session",
+    "reset conversation", "forget everything", "forget that", "clear the conversation", "clear the session",
+    "fresh start", "start fresh",
+}
+
+
+def is_reset_phrase(text: str) -> bool:
+    """"start over", "new session", ... -- forget the voice conversation so far."""
+    words = re.findall(r"[a-z']+", text.lower())
+    while words and words[0] in ("hey", "ok", "okay", "please", "fig", "can", "you", "could"):
+        words.pop(0)
+    return " ".join(words) in RESET_PHRASES

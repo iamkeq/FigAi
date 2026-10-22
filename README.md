@@ -219,6 +219,13 @@ that always asks first, even by voice. System processes and Fig himself are neve
 
 In Slack replies "in chat" means #general, and "DM me" posts a direct message that tags you.
 
+#### Keeping conversations short
+
+Every message so far is re-sent to the model on every turn, so a long voice session or DM gets slower and
+costlier. Fig keeps at most `conversation.max_messages` (30) per conversation, a voice session that's been quiet
+for `voice_idle_minutes` (10) starts fresh, and so does your Slack DM after `dm_idle_minutes` (120); channel threads
+keep going. Say "start over" / "new session" by voice, or send `!new` in Slack, to reset one right now.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the

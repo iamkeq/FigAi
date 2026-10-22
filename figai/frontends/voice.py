@@ -6,16 +6,18 @@ from __future__ import annotations
 
 import contextlib
 import json
+import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from figai.agent.history import is_idle, trim_history
 from figai.agent.loop import Message
 from figai.agent.session import AgentSession
 from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
-from figai.voice.shortcuts import match_slack_post
+from figai.voice.shortcuts import is_reset_phrase, match_slack_post
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
@@ -28,11 +30,16 @@ def wake_phrase_words(model_name: str) -> tuple[str, ...]:
 
 
 def build_command_handler(
-    config: Config, session: AgentSession, notifier: Callable[[str, str], None] = default_notifier
+    config: Config,
+    session: AgentSession,
+    notifier: Callable[[str, str], None] = default_notifier,
+    clock: Callable[[], float] = time.time,
 ) -> Callable[[str], None]:
     conversation: list[Message] = []
+    last_command_at: list[float | None] = [None]
     owner = config.settings.allowed_slack_user_id
     reply_to = config.app.voice.reply_to
+    settings = config.app.conversation
 
     def _deliver(text: str, reply: str) -> None:
         """Spoken commands answer where you'd expect: in your Slack DM (so the reply is readable
@@ -87,9 +94,19 @@ def build_command_handler(
 
     def _on_command(text: str) -> None:
         logger.info("Voice command: %s", text)
+        now = clock()
+        if is_idle(last_command_at[0], now, settings.voice_idle_minutes) and conversation:
+            logger.info("Voice session idle for over %s min -- starting fresh", settings.voice_idle_minutes)
+            conversation.clear()
+        last_command_at[0] = now
+        if is_reset_phrase(text):
+            conversation.clear()
+            _deliver(text, "Fresh start -- I've forgotten our conversation.")
+            return
         if _try_shortcut(text):
             return
         conversation.append({"role": "user", "content": text})
+        trim_history(conversation, settings.max_messages)
         try:
             # Same session (and lock) as Slack; tools that need "the current channel" mean your DM.
             auto = getattr(session, "auto_confirm", None)

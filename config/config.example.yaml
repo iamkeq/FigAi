@@ -34,6 +34,12 @@ allowlisted_folders:
   - "C:\\Users\\matt\\Documents"
   - "C:\\Users\\matt\\Downloads"
 
+# How much history is re-sent to the model every turn (0 = off for any of these).
+conversation:
+  max_messages: 30        # oldest messages are dropped first
+  voice_idle_minutes: 10  # a voice session quiet this long starts fresh
+  dm_idle_minutes: 120    # same for your Slack DM (channel threads keep going)
+
 limits:
   max_agent_iterations: 10
   max_send_file_mb: 25
