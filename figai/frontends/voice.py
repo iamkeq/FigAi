@@ -4,6 +4,7 @@ shows a desktop notification with its reply."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 from figai.agent.loop import Message
@@ -11,9 +12,16 @@ from figai.agent.session import AgentSession
 from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
+from figai.voice.chime import play_listening_chime
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
+
+
+def wake_phrase_words(model_name: str) -> tuple[str, ...]:
+    """Words that are just the wake phrase, so a transcript of only "hey jarvis" is ignored."""
+    stem = Path(model_name).stem
+    return (*VoiceListenerConfig.wake_phrase_words, *[w for w in stem.lower().replace("-", "_").split("_") if w])
 
 
 def run_voice_frontend(config: Config, session: Optional[AgentSession] = None) -> None:
@@ -54,10 +62,13 @@ def run_voice_frontend(config: Config, session: Optional[AgentSession] = None) -
         wake_word_detector=wake_word_detector,
         transcriber=transcriber,
         on_command=_on_command,
+        on_wake=play_listening_chime if config.app.voice.chime else None,
         config=VoiceListenerConfig(
             wake_word_threshold=config.app.voice.wake_word_threshold,
             silence_seconds=config.app.voice.silence_seconds,
             max_command_seconds=config.app.voice.max_command_seconds,
+            no_speech_timeout_seconds=config.app.voice.no_speech_timeout_seconds,
+            wake_phrase_words=wake_phrase_words(config.app.voice.wake_word_model),
         ),
     )
 
