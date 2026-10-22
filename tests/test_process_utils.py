@@ -50,10 +50,14 @@ def test_ensure_std_streams_replaces_missing_streams_with_a_log_file(
     sys.stdout.close()
 
 
-def test_ensure_std_streams_is_a_noop_with_a_console(tmp_path: Path) -> None:
+def test_ensure_std_streams_only_wraps_existing_streams_with_a_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     before = (sys.stdout, sys.stderr)
+    monkeypatch.setattr(sys, "stdout", before[0])  # so pytest restores whatever the call installs
+    monkeypatch.setattr(sys, "stderr", before[1])
     ensure_std_streams(tmp_path)
-    assert (sys.stdout, sys.stderr) == before
+    assert (sys.stdout._stream, sys.stderr._stream) == before
     assert not (tmp_path / process_utils.CONSOLE_LOG_NAME).exists()
 
 
@@ -150,3 +154,38 @@ def test_quiet_run_gives_children_no_stdin(monkeypatch) -> None:
     seen.clear()
     process_utils.quiet_run(["x"], input="data")
     assert "stdin" not in seen
+
+
+class _DeadStream:
+    def write(self, _data: str) -> int:
+        raise OSError(9, "Bad file descriptor")
+
+    def flush(self) -> None:
+        raise OSError(9, "Bad file descriptor")
+
+    def isatty(self) -> bool:
+        raise ValueError("I/O operation on closed file")
+
+
+def test_safe_stream_swallows_dead_handle_errors() -> None:
+    from figai.process_utils import SafeStream
+
+    stream = SafeStream(_DeadStream())
+    assert stream.write("hello") == 5
+    stream.flush()
+    assert stream.isatty() is False
+    print("banner", file=stream)  # print() to a dead stream must not raise
+
+
+def test_ensure_std_streams_installs_a_safe_stream(tmp_path, monkeypatch) -> None:
+    import sys
+
+    from figai.process_utils import SafeStream, ensure_std_streams
+
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    ensure_std_streams(tmp_path)
+    assert isinstance(sys.stdout, SafeStream) and sys.stdout is sys.stderr
+    print("goes to the log file")
+    sys.stdout.flush()
+    assert "goes to the log file" in (tmp_path / "figai-console.log").read_text()
