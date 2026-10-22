@@ -138,6 +138,10 @@ class SlackRouter:
     def handle_text(self, conversation_key: str, text: str) -> str | None:
         if text == "!status":
             return self.status_text()
+        if text == "!health":
+            return self.session.health.report()
+        if text == "!logs" or text.startswith("!logs ") or text == "!errors":
+            return self.logs_text(text)
         if text == "!skills":
             return self.skills_text()
         if text.startswith("!approve "):
@@ -184,6 +188,18 @@ class SlackRouter:
             f"Fig is online. Uptime: {uptime_minutes:.1f} min. "
             f"Model: {self.config.app.models.default_chat}. Last error: {self.last_error or 'none'}"
         )
+
+    def logs_text(self, command: str) -> str:
+        """`!logs [errors|warnings|tools|all] [count]`; `!errors` is `!logs errors`."""
+        from figai.logs_reader import FILTERS, recent_lines
+
+        words = command.split()[1:] if command.startswith("!logs") else []
+        kind = next((w for w in words if w in FILTERS), "errors")
+        count = next((int(w) for w in words if w.isdigit()), 10)
+        lines = recent_lines(kind, count)
+        if not lines:
+            return f"Nothing in the log matches '{kind}'."
+        return f"Last {len(lines)} {kind} log record(s):\n```\n" + "\n".join(lines) + "\n```"
 
     def skills_text(self) -> str:
         approved = self.session.loader.discover()

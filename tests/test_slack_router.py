@@ -40,7 +40,10 @@ def make_app_config(tmp_path: Path) -> SimpleNamespace:
 def make_router(tmp_path: Path, reply: str = "ok", raise_error: bool = False) -> SlackRouter:
     loader = SkillLoader(tmp_path / "skills")
     session = SimpleNamespace(
-        loop=FakeLoop(reply, raise_error), loader=loader, conversation_context=ConversationContext()
+        loop=FakeLoop(reply, raise_error),
+        loader=loader,
+        conversation_context=ConversationContext(),
+        health=SimpleNamespace(report=lambda: ":white_check_mark: *Fig* -- fine"),
     )
     return SlackRouter(session=session, config=make_app_config(tmp_path), allowed_user_id="U_OWNER")
 
@@ -428,3 +431,24 @@ def test_model_command_does_not_reach_the_agent_loop(tmp_path: Path) -> None:
     router, _ = router_with_models(tmp_path)
     router.handle_text("D1", "!model a/chat-2")
     assert router.session.loop.calls == []
+
+
+def test_health_command_returns_the_report(tmp_path: Path) -> None:
+    assert "fine" in make_router(tmp_path).handle_text("C1", "!health")
+
+
+def test_logs_command_parses_kind_and_count(tmp_path: Path, monkeypatch) -> None:
+    seen: list[tuple[str, int]] = []
+    monkeypatch.setattr(
+        "figai.logs_reader.recent_lines", lambda kind, count, path=None: seen.append((kind, count)) or ["line"]
+    )
+    router = make_router(tmp_path)
+    assert "line" in router.handle_text("C1", "!logs tools 5")
+    router.handle_text("C1", "!errors")
+    router.handle_text("C1", "!logs")
+    assert seen == [("tools", 5), ("errors", 10), ("errors", 10)]
+
+
+def test_logs_command_when_nothing_matches(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("figai.logs_reader.recent_lines", lambda kind, count, path=None: [])
+    assert "Nothing" in make_router(tmp_path).handle_text("C1", "!logs warnings")

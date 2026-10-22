@@ -11,6 +11,7 @@ import sys
 from typing import Any, Callable
 
 from figai.agent.tools import Tool, ToolRegistry
+from figai.lifecycle import mark_clean_stop
 from figai.logging_setup import get_logger
 from figai.process_utils import quiet_run
 from figai.reminders.scheduler import TimerFactory, default_timer_factory
@@ -27,6 +28,7 @@ class UpdateError(Exception):
 
 
 def default_restart() -> None:
+    mark_clean_stop()  # execv skips atexit; this restart is deliberate
     os.execv(sys.executable, [sys.executable, "-m", "figai"])
 
 

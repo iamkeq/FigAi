@@ -15,6 +15,7 @@ from figai.browser_bridge.state import BridgeState
 from figai.browser_bridge.tools import register_browser_bridge_tools
 from figai.config import Config
 from figai.gmail.tools import register_email_tools
+from figai.health import HealthChecker
 from figai.logging_setup import get_logger
 from figai.media.tools import register_media_tools
 from figai.obs.client import build_client_factory as build_obs_client_factory
@@ -32,6 +33,7 @@ from figai.tools.channels import ChannelLister, register_list_channels_tool
 from figai.tools.clipboard import register_clipboard_tools
 from figai.tools.config_edit import register_config_edit_tools
 from figai.tools.confirm import ConfirmationStore
+from figai.tools.diagnostics import register_diagnostics_tools
 from figai.tools.fetch_url import register_fetch_url_tool
 from figai.tools.files import FileSender, register_search_files_tool, register_send_file_tools
 from figai.tools.media_keys import register_media_key_tool
@@ -78,6 +80,7 @@ def build_tool_registry(
     on_updated: Callable[[str, str], None] | None,
     bridge_state: BridgeState,
     models: ModelManager,
+    health_report: Callable[[], str],
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -114,6 +117,7 @@ def build_tool_registry(
     register_email_tools(registry, config)
     register_model_tools(registry, models)
     register_config_edit_tools(registry, confirmations)
+    register_diagnostics_tools(registry, health_report)
 
     return registry
 
@@ -155,6 +159,7 @@ class AgentSession:
         local_vault = LocalVaultBackend(
             Path(config.app.vault.local_path), config.app.vault.remote_writable_subfolder
         )
+        self.health = HealthChecker(config, remote_factory, self.bridge_state, describe_models=self.models.describe)
         registry = build_tool_registry(
             config,
             self.loader,
@@ -169,6 +174,7 @@ class AgentSession:
             on_updated,
             self.bridge_state,
             self.models,
+            self.health.report,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())

@@ -73,8 +73,36 @@ def test_loop_stops_at_max_iterations_instead_of_looping_forever() -> None:
 
     result = loop.run([{"role": "user", "content": "loop forever"}])
 
-    assert result == FALLBACK_MESSAGE
-    assert len(client.chat.completions.calls) == 3
+    assert result.startswith(FALLBACK_MESSAGE)
+    assert "echo x3" in result
+    assert len(client.chat.completions.calls) == 4  # 3 steps + the explanation attempt
+
+
+def test_step_limit_uses_the_models_explanation_when_it_gives_one() -> None:
+    tool_call = make_tool_call("call_1", "echo", json.dumps({"text": "again"}))
+    client = FakeClient(
+        [make_response(content=None, tool_calls=[tool_call])] * 2 + [make_response(content="I couldn't find the folder.")]
+    )
+    loop = AgentLoop(client=client, model="m", tools=registry_with_echo_tool(), system_prompt="s", max_iterations=2)
+
+    result = loop.run([{"role": "user", "content": "x"}])
+
+    assert result == f"{FALLBACK_MESSAGE}\nI couldn't find the folder."
+
+
+def test_step_limit_summary_quotes_the_latest_tool_error() -> None:
+    registry = ToolRegistry()
+    registry.register(
+        Tool(name="memory_list", description="d", parameters={"type": "object", "properties": {}},
+             handler=lambda _a: json.dumps({"error": "No such folder"}))
+    )
+    call = make_tool_call("c", "memory_list", "{}")
+    client = FakeClient([make_response(content=None, tool_calls=[call])])
+    loop = AgentLoop(client=client, model="m", tools=registry, system_prompt="s", max_iterations=2)
+
+    result = loop.run([{"role": "user", "content": "x"}])
+
+    assert "memory_list x2" in result and "No such folder" in result
 
 
 def test_loop_passes_tool_schemas_to_the_model() -> None:
