@@ -183,6 +183,13 @@ down, nothing can post -- check `logs\update.log`.)
   matches, instead of downloading every note. It falls back to the old way if the server
   has no grep/xargs.
 
+#### Help: what can Fig do?
+
+`!help` shows a cheat sheet of every `!command` and example phrase, and `!help email` (or
+`briefing`, `vault`, `reminders`, ...) shows one section. You can also just ask "what can you
+do?" -- the `help` skill answers from the same sheet, which lives in `skills/help/SKILL.md`.
+When you add a feature, add its phrases there; a test fails if a `!command` is missing.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the
