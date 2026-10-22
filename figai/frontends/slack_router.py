@@ -7,6 +7,7 @@ in it -- it ignores ordinary channel chatter it wasn't addressed in."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
@@ -116,16 +117,17 @@ class SlackRouter:
         channel: str,
         thread_ts: str | None = None,
     ) -> SlackReply:
-        context = getattr(self.session, "conversation_context", None)
-        if context is not None:
-            context.current_channel = channel
-            context.current_thread_ts = thread_ts
+        with getattr(self.session, "run_lock", None) or contextlib.nullcontext():
+            context = getattr(self.session, "conversation_context", None)
+            if context is not None:
+                context.current_channel = channel
+                context.current_thread_ts = thread_ts
 
-        if on_start:
-            on_start()
-        reply_text = self.handle_text(conversation_key, text)
-        if on_done:
-            on_done()
+            if on_start:
+                on_start()
+            reply_text = self.handle_text(conversation_key, text)
+            if on_done:
+                on_done()
         if self.on_change:
             self.on_change()
         return SlackReply(shorten_links(reply_text), thread_ts=thread_ts)

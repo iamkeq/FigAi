@@ -91,6 +91,14 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - "run <command> on the server" (asks first, shows the exact command)
 - "learn how to <procedure>" -- drafts a skill; nothing runs until you `!approve` it
 
+## Posting to Slack
+- "post in general that dinner is at 6" / "tell #dev the build is done" -- asks first for a channel; your own DM needs no yes
+- Works the same by voice. Turn the ask-first off with `confirm_slack_posts: false` in config.yaml.
+
+## Voice
+- Say the wake word, wait for the bing, then talk. Replies come to your Slack DM (`voice.reply_to`: slack, notification or both).
+- Spoken commands can do everything Slack can: post, remind, screenshot, vault notes.
+
 ## Slack basics
 - DM Fig anytime. In a channel, @-mention him and keep talking in that thread.
 - "what channels can you see?"

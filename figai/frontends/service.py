@@ -4,12 +4,15 @@ main thread. Fig's status for the tray reflects the live Slack router once ready
 from __future__ import annotations
 
 import threading
+import time
 from typing import Any
 
 from figai.config import Config
 from figai.logging_setup import get_logger
 
 logger = get_logger("service")
+
+SESSION_WAIT_SECONDS = 120
 
 
 def run_service(config: Config) -> None:
@@ -38,7 +41,14 @@ def run_service(config: Config) -> None:
 
     def _run_voice_frontend_safely() -> None:
         try:
-            run_voice_frontend(config)
+            if not config.app.voice.enabled:
+                return run_voice_frontend(config)
+            # Share the Slack session, so voice can do everything Slack can (post, remind, screenshot...).
+            deadline = time.monotonic() + SESSION_WAIT_SECONDS
+            while "router" not in state and time.monotonic() < deadline:
+                time.sleep(0.5)
+            router = state.get("router")
+            run_voice_frontend(config, session=router.session if router else None)
         except Exception:
             # Missing mic, missing models, no internet for the first model
             # download, etc. -- voice is opt-in and must never take down Slack.

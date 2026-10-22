@@ -10,6 +10,7 @@ from figai.agent.client import build_client
 from figai.agent.loop import AgentLoop
 from figai.agent.prompt import build_system_prompt
 import json
+import threading
 
 from figai.agent.tools import ToolRegistry
 from figai.briefing.briefing import BriefingManager, BriefingSources, build_briefing
@@ -46,6 +47,7 @@ from figai.tools.media_keys import register_media_key_tool
 from figai.tools.models import ModelManager, register_model_tools
 from figai.tools.notifications import register_notification_tool
 from figai.tools.programs import register_open_program_tool
+from figai.tools.slack_post import register_slack_post_tool
 from figai.tools.screenshot import register_screenshot_tool
 from figai.tools.self_update import register_self_update_tools
 from figai.tools.system_info import register_system_info_tools
@@ -89,6 +91,7 @@ def build_tool_registry(
     health_report: Callable[[], str],
     checks: CheckManager,
     briefing: BriefingManager,
+    message_sender: MessageSender | None = None,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -119,6 +122,14 @@ def build_tool_registry(
 
     register_reminder_tools(registry, reminder_scheduler, conversation_context)
     register_list_channels_tool(registry, channel_lister)
+    register_slack_post_tool(
+        registry,
+        confirmations,
+        message_sender,
+        channel_lister,
+        config.settings.allowed_slack_user_id,
+        confirm=config.app.confirm_slack_posts,
+    )
     register_self_update_tools(registry, confirmations, on_updated=on_updated)
     register_version_info_tool(registry, config)
     register_browser_bridge_tools(registry, bridge_state, enabled=bool(config.settings.browser_bridge_token))
@@ -146,6 +157,9 @@ class AgentSession:
         on_updated: Callable[[str, str], None] | None = None,
     ) -> None:
         self.config = config
+        self.message_sender = message_sender
+        # Slack messages and voice commands share this session, so only one may drive it at a time.
+        self.run_lock = threading.RLock()
         self.loader = SkillLoader(SKILLS_ROOT)
         self.confirmations = ConfirmationStore(timeout_seconds=config.app.limits.confirmation_timeout_seconds)
         self.conversation_context = ConversationContext()
@@ -216,6 +230,7 @@ class AgentSession:
             self.health.report,
             self.checks,
             self.briefing,
+            message_sender,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())
