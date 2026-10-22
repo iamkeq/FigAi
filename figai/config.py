@@ -82,6 +82,17 @@ class VoiceConfig(BaseModel):
     max_command_seconds: float = 15.0
 
 
+class BriefingConfig(BaseModel):
+    """Defaults for the daily briefing; `!briefing on|off|time` changes them from chat
+    and those changes are remembered across restarts."""
+
+    enabled: bool = False
+    time: str = Field(default="07:30", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")  # local 24h HH:MM
+    channel: str | None = None  # Slack channel ID; default is your DM
+    include_email: bool = True  # the one part that spends model tokens (the email model, once a day)
+    email_limit: int = Field(default=15, ge=1, le=25)
+
+
 class LimitsConfig(BaseModel):
     max_agent_iterations: int = 10
     max_send_file_mb: int = 25
@@ -186,6 +197,7 @@ class AppConfig(BaseModel):
     allowlisted_programs: dict[str, str] = Field(default_factory=dict)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     voice: VoiceConfig = Field(default_factory=VoiceConfig)
+    briefing: BriefingConfig = Field(default_factory=BriefingConfig)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     # Where Fig persists lightweight runtime state (active Slack threads,
     # conversation histories, pending reminders) so it survives a restart.

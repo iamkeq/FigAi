@@ -19,6 +19,7 @@ from figai.logs_reader import last_error
 from figai.frontends.slack_router import RESTART_SENTINEL, SlackReply, SlackRouter
 from figai.logging_setup import get_logger
 from figai.persistence.store import JsonStore
+from figai.scheduling.ticker import Ticker
 from figai.tools.channels import resolve_channel_id_by_name
 from figai.update.announcement import build_startup_announcement, decide_pending_announcement
 from figai.update.github_info import find_merged_pr_for_commit, get_head_sha, get_remote_owner_repo
@@ -141,6 +142,8 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
 
     router.restore_state(state.get("slack", {}))
     session.reminder_scheduler.restore(state.get("reminders", []))
+    session.checks.restore(state.get("checks", []))
+    session.briefing.restore(state.get("briefing", {}))
 
     def _save_state() -> None:
         # Merge rather than overwrite, so a pending update announcement left by
@@ -149,12 +152,22 @@ def run_slack_bot(config: Config, on_ready: Callable[[SlackRouter], None] | None
             current = store.load()
             current["slack"] = router.to_state()
             current["reminders"] = session.reminder_scheduler.to_state()
+            current["checks"] = session.checks.to_state()
+            current["briefing"] = session.briefing.to_state()
             store.save(current)
         except Exception:
             logger.exception("Failed to persist state to %s", store.path)
 
     router.on_change = _save_state
     session.reminder_scheduler.on_change = _save_state
+    session.checks.on_change = _save_state
+    session.briefing.on_change = _save_state
+
+    def _tick() -> None:
+        session.checks.tick()
+        session.briefing.tick()
+
+    Ticker(_tick).start()
 
     if state:
         logger.info(

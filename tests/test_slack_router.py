@@ -452,3 +452,36 @@ def test_logs_command_parses_kind_and_count(tmp_path: Path, monkeypatch) -> None
 def test_logs_command_when_nothing_matches(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("figai.logs_reader.recent_lines", lambda kind, count, path=None: [])
     assert "Nothing" in make_router(tmp_path).handle_text("C1", "!logs warnings")
+
+
+def _briefing_router(tmp_path: Path):
+    from figai.briefing.briefing import BriefingManager
+    from figai.config import BriefingConfig
+    from figai.monitoring.checks import CheckManager
+
+    router = make_router(tmp_path)
+    sent: list[str] = []
+    router.session.briefing = BriefingManager(
+        BriefingConfig(), "U", build=lambda s, n: "B", notify=lambda c, t: sent.append(t)
+    )
+    router.session.checks = CheckManager(notify=lambda c, t: None, probe=lambda c: (True, "ok"))
+    return router, sent
+
+
+def test_briefing_commands(tmp_path: Path) -> None:
+    router, sent = _briefing_router(tmp_path)
+    assert "off" in router.handle_text("C1", "!briefing")
+    assert "*on*" in router.handle_text("C1", "!briefing on")
+    assert "09:00" in router.handle_text("C1", "!briefing time 09:00")
+    assert "Email section: off" in router.handle_text("C1", "!briefing email off")
+    assert router.handle_text("C1", "!briefing now") == "Sent." and sent == ["B"]
+    assert "off" in router.handle_text("C1", "!briefing off")
+    assert "Usage" in router.handle_text("C1", "!briefing bogus")
+    assert "Time must look like" in router.handle_text("C1", "!briefing time 99:00")
+
+
+def test_checks_command(tmp_path: Path) -> None:
+    router, _ = _briefing_router(tmp_path)
+    assert router.handle_text("C1", "!checks") == "No scheduled checks."
+    router.session.checks.add("miner", "http://x/", 5, "C1")
+    assert "miner" in router.handle_text("C1", "!checks")

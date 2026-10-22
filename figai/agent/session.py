@@ -9,7 +9,11 @@ from typing import Any, Callable
 from figai.agent.client import build_client
 from figai.agent.loop import AgentLoop
 from figai.agent.prompt import build_system_prompt
+import json
+
 from figai.agent.tools import ToolRegistry
+from figai.briefing.briefing import BriefingManager, BriefingSources, build_briefing
+from figai.briefing.tools import register_briefing_tools
 from figai.brain_map.tools import register_brain_map_tool
 from figai.browser_bridge.state import BridgeState
 from figai.browser_bridge.tools import register_browser_bridge_tools
@@ -17,6 +21,8 @@ from figai.config import Config
 from figai.gmail.tools import register_email_tools
 from figai.health import HealthChecker
 from figai.logging_setup import get_logger
+from figai.monitoring.checks import CheckManager
+from figai.monitoring.tools import register_check_tools
 from figai.media.tools import register_media_tools
 from figai.obs.client import build_client_factory as build_obs_client_factory
 from figai.obs.tools import register_obs_tools
@@ -81,6 +87,8 @@ def build_tool_registry(
     bridge_state: BridgeState,
     models: ModelManager,
     health_report: Callable[[], str],
+    checks: CheckManager,
+    briefing: BriefingManager,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     register_time_tool(registry)
@@ -118,6 +126,8 @@ def build_tool_registry(
     register_model_tools(registry, models)
     register_config_edit_tools(registry, confirmations)
     register_diagnostics_tools(registry, health_report)
+    register_check_tools(registry, checks, conversation_context, config.settings.allowed_slack_user_id)
+    register_briefing_tools(registry, briefing)
 
     return registry
 
@@ -154,12 +164,41 @@ class AgentSession:
 
         self.reminder_scheduler = ReminderScheduler(on_fire=_on_reminder_fire)
 
+        def _notify(channel: str, text: str) -> None:
+            if message_sender is None:
+                logger.error("No message channel configured; dropping: %s", text[:120])
+                return
+            message_sender(channel, text, None)
+
+        self.checks = CheckManager(notify=_notify)
+
         client = build_client(config)
         remote_factory = build_remote_vault_factory(config)
         local_vault = LocalVaultBackend(
             Path(config.app.vault.local_path), config.app.vault.remote_writable_subfolder
         )
         self.health = HealthChecker(config, remote_factory, self.bridge_state, describe_models=self.models.describe)
+
+        def _run_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+            try:
+                return json.loads(self.loop.tools.execute(name, json.dumps(arguments)))
+            except Exception as exc:  # noqa: BLE001 - a broken section must not sink the whole briefing
+                return {"error": str(exc)}
+
+        sources = BriefingSources(
+            run_tool=_run_tool,
+            pending_reminders=self.reminder_scheduler.list_pending,
+            down_checks=lambda: [self.checks.describe(c) for c in self.checks.down()],
+            health_problems=lambda: [
+                f"{r.name}: {r.detail}" for r in self.health.run() if r.ok is False and r.name != "Chrome bridge"
+            ],
+        )
+        self.briefing = BriefingManager(
+            config.app.briefing,
+            owner_channel=config.settings.allowed_slack_user_id,
+            build=lambda settings, now: build_briefing(sources, settings, now),
+            notify=_notify,
+        )
         registry = build_tool_registry(
             config,
             self.loader,
@@ -175,6 +214,8 @@ class AgentSession:
             self.bridge_state,
             self.models,
             self.health.report,
+            self.checks,
+            self.briefing,
         )
 
         system_prompt = build_system_prompt(self.loader.get_summary_text())
