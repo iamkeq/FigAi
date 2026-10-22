@@ -15,6 +15,7 @@ vault:
   # Absolute path to the vault root on the remote machine.
   remote_path: "/home/matt/ObsidianVault"
   # Subfolder (relative to remote_path) Fig may write to. Reads may cover the whole vault.
+  # Use "" to let him edit/add anywhere in the vault (still confined to remote_path).
   remote_writable_subfolder: "AI"
   # Local, fully independent vault used when the remote one is unreachable.
   # Not synced or merged with the remote vault -- reconcile manually in Obsidian.

@@ -38,3 +38,12 @@ def test_resolve_write_path_traversal_out_of_writable_subfolder_rejected() -> No
     backend = make_backend()
     with pytest.raises(VaultPathError):
         backend._resolve("AI/../other.md", for_write=True)
+
+
+@pytest.mark.parametrize("subfolder", ["", "."])
+def test_empty_writable_subfolder_means_whole_vault_writable(subfolder: str) -> None:
+    host = SshHost(host="10.0.0.5", user="matt", port=22, key_path="/tmp/key")
+    backend = RemoteVaultBackend(host, remote_root="/home/matt/Vault", writable_subfolder=subfolder)
+    assert backend._resolve("notes/thing.md", for_write=True) == "/home/matt/Vault/notes/thing.md"
+    with pytest.raises(VaultPathError):
+        backend._resolve("../outside.md", for_write=True)
