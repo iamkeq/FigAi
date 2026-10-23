@@ -22,6 +22,7 @@ from figai.voice.shortcuts import (
     is_help_phrase,
     is_reset_phrase,
     match_focus_window,
+    match_open_app,
     match_slack_post,
     match_window_action,
 )
@@ -137,9 +138,22 @@ def build_command_handler(
         _deliver(text, reply)
         return True
 
+    def _try_open(text: str) -> bool:
+        app = match_open_app(text)
+        if app is None:
+            return False
+        data = _tool("open_program", {"name": app})
+        if data.get("status") == "launched":
+            _deliver(text, f"Opened {data.get('program', app)}.")
+            return True
+        if data.get("candidates"):
+            _deliver(text, f"'{app}' could mean {', '.join(data['candidates'])} -- which one?")
+            return True
+        return False  # not an installed app (maybe a website or a file): let the model handle it
+
     def _try_shortcut(text: str) -> bool:
         """Posting/DM and window phrasings are handled in code so they work with any chat model."""
-        if _try_focus(text) or _try_window_action(text):
+        if _try_focus(text) or _try_window_action(text) or _try_open(text):
             return True
         post = match_slack_post(text, _channel_names())
         if post is None:

@@ -119,6 +119,9 @@ def match_name(query: str, names: list[str]) -> tuple[str | None, list[str]]:
     wanted = _norm(query)
     if not wanted:
         return None, []
+    exact = [name for name in names if name.strip().lower() == query.strip().lower()]
+    if len(exact) == 1:  # "notepad" must not be ambiguous with "Notepad++" just because punctuation is ignored
+        return exact[0], exact
     normalized = {name: _norm(name) for name in names}
     for test in (
         lambda n: n == wanted,

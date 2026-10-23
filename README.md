@@ -214,7 +214,7 @@ channel still ask unless `confirm_slack_posts: false`.)
 
 #### Opening and closing apps
 
-"Open spotify" launches it from `allowlisted_programs` first, then from anything in your Windows Start
+"Open notepad" / "open spotify" launches it from `allowlisted_programs` first, then from anything in your Windows Start
 menu (`allow_start_menu_apps: false` limits it to the allowlist). "Close spotify" asks the app to close
 the way clicking its X does, so unsaved work still gets its prompt. A stuck app can be force-killed, but
 that always asks first, even by voice. System processes and Fig himself are never closed.

@@ -78,7 +78,7 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - "bring discord up" / "pull up spotify" / "switch to chrome" -- brings that window to the front (restores it if minimized; starts the app if it isn't open)
 - "minimize discord" / "minimize this" / "minimize everything" / "maximize chrome"
 - "what windows do I have open?"
-- "open spotify" / "open calculator" / "open steam" -- allowlisted programs, then anything in your Start menu
+- "open notepad" / "open spotify" / "open calculator" / "open steam" (by voice it's instant; a name it can't find as an app goes to the model, e.g. a website) -- allowlisted programs, then anything in your Start menu
 - "close spotify" / "close chrome" -- closes it politely (like clicking X); if it won't close, "force close it" (always asks)
 - Never closes system processes or Fig himself
 - "find files named <text>"
