@@ -101,3 +101,36 @@ def match_focus_window(text: str) -> str | None:
     if not app or app.split()[0] in NOT_AN_APP:
         return None
     return app
+
+
+WINDOW_ACTION_PATTERN = re.compile(
+    rf"{FILLER}(?:please\s+)?(?P<verb>minimi[sz]e|maximi[sz]e|close|quit|exit)\s+(?:the\s+)?"
+    r"(?P<app>[a-z0-9+#.'\- ]{2,40}?)(?:\s+(?:window|windows|app|application|program|please))*[.!?]?\s*$",
+    re.IGNORECASE,
+)
+VERB_ACTIONS = {"minimize": "minimize", "minimise": "minimize", "maximize": "maximize", "maximise": "maximize",
+                "close": "close", "quit": "close", "exit": "close"}
+CURRENT_PHRASES = {"this", "current", "active", "this one", "current window", "active window", "the current", "the active"}
+ALL_PHRASES = {"all", "everything", "all windows", "all of them", "every window", "all the windows"}
+
+
+@dataclass(frozen=True)
+class WindowAction:
+    action: str  # minimize | maximize | close
+    target: str  # an app name, or "current", or "all"
+
+
+def match_window_action(text: str) -> WindowAction | None:
+    """"minimize discord", "maximize chrome", "close spotify", "minimize everything", "close this"."""
+    found = WINDOW_ACTION_PATTERN.match(text.strip())
+    if not found:
+        return None
+    action = VERB_ACTIONS[found.group("verb").lower()]
+    app = re.sub(r"\s+", " ", found.group("app")).strip(" .").lower()
+    if not app or app.split()[0] in NOT_AN_APP - {"this"}:
+        return None
+    if app in CURRENT_PHRASES or app == "this window":
+        return WindowAction(action, "current")
+    if app in ALL_PHRASES:
+        return None if action != "minimize" else WindowAction(action, "all")  # never "close everything"
+    return WindowAction(action, app)
