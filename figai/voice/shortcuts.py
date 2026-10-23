@@ -67,3 +67,17 @@ def is_reset_phrase(text: str) -> bool:
     while words and words[0] in ("hey", "ok", "okay", "please", "fig", "can", "you", "could"):
         words.pop(0)
     return " ".join(words) in RESET_PHRASES
+
+
+HELP_PHRASES = {
+    "help", "help menu", "show help", "show the help menu", "what can you do", "what do you do",
+    "what are your abilities", "what are your commands", "list your abilities", "list your commands",
+    "show me what you can do", "how do i use you",
+}
+
+
+def is_help_phrase(text: str) -> bool:
+    words = re.findall(r"[a-z']+", text.lower())
+    while words and words[0] in ("hey", "ok", "okay", "please", "fig"):
+        words.pop(0)
+    return " ".join(words) in HELP_PHRASES

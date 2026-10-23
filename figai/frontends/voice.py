@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from figai import help as help_menu
 from figai.agent.history import is_idle, trim_history
 from figai.agent.loop import Message
 from figai.agent.session import AgentSession
@@ -17,7 +18,7 @@ from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
-from figai.voice.shortcuts import is_reset_phrase, match_slack_post
+from figai.voice.shortcuts import is_help_phrase, is_reset_phrase, match_slack_post
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
@@ -99,6 +100,13 @@ def build_command_handler(
             logger.info("Voice session idle for over %s min -- starting fresh", settings.voice_idle_minutes)
             conversation.clear()
         last_command_at[0] = now
+        if is_help_phrase(text):
+            try:
+                _deliver(text, help_menu.menu(session.loader.get_instructions("help")))
+            except Exception:
+                logger.exception("Could not build the help menu")
+                _deliver(text, "I couldn't load the help menu -- try `!help` in Slack.")
+            return
         if is_reset_phrase(text):
             conversation.clear()
             _deliver(text, "Fresh start -- I've forgotten our conversation.")
