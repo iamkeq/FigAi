@@ -134,3 +134,21 @@ def match_window_action(text: str) -> WindowAction | None:
     if app in ALL_PHRASES:
         return None if action != "minimize" else WindowAction(action, "all")  # never "close everything"
     return WindowAction(action, app)
+
+OPEN_PATTERN = re.compile(
+    rf"{FILLER}(?:please\s+)?(?:open(?:\s+up)?|launch)\s+(?:the\s+|up\s+)?(?P<app>[a-z0-9+#.'\- ]{{2,40}}?)"
+    r"(?:\s+(?:app|application|program|please|for me))*[.!?]?\s*$",
+    re.IGNORECASE,
+)
+NOT_AN_APP_TARGET = re.compile(r"(?:^|\s)(?:tab|tabs|window|file|folder|link|url|website|page|door|email|emails|mail)(?:\s|$)|\.[a-z]{2,4}$|^(?:http|www)", re.IGNORECASE)
+
+
+def match_open_app(text: str) -> str | None:
+    """"open notepad" / "launch spotify" -> the app name. Sites, tabs, files and folders are left to the model."""
+    found = OPEN_PATTERN.match(text.strip())
+    if not found:
+        return None
+    app = re.sub(r"\s+", " ", found.group("app")).strip(" .").lower()
+    if not app or app.split()[0] in NOT_AN_APP or len(app.split()) > 4 or NOT_AN_APP_TARGET.search(app):
+        return None
+    return app
