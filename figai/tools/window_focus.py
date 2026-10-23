@@ -143,9 +143,37 @@ def focus_window_windows(hwnd: int) -> bool:
     return user32.GetForegroundWindow() == hwnd
 
 
+def set_window_state_windows(hwnd: int, state: str) -> None:
+    import ctypes
+
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+    user32.ShowWindow(hwnd, {"minimize": 6, "maximize": 3, "restore": 9}[state])
+
+
+def minimize_all_windows() -> None:
+    """Win+M: minimize every window (leaves the desktop showing)."""
+    import ctypes
+
+    user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+    for key, flags in ((0x5B, 0), (0x4D, 0), (0x4D, 2), (0x5B, 2)):
+        user32.keybd_event(key, 0, flags, 0)
+
+
 def default_lister() -> list[WindowInfo]:
     if sys.platform == "win32":
         return list_windows_windows()
+    raise UnsupportedPlatformError(f"Window control is not supported on {sys.platform}")
+
+
+def default_state_setter(hwnd: int, state: str) -> None:
+    if sys.platform == "win32":
+        return set_window_state_windows(hwnd, state)
+    raise UnsupportedPlatformError(f"Window control is not supported on {sys.platform}")
+
+
+def default_minimize_all() -> None:
+    if sys.platform == "win32":
+        return minimize_all_windows()
     raise UnsupportedPlatformError(f"Window control is not supported on {sys.platform}")
 
 
@@ -158,8 +186,16 @@ def default_focuser(hwnd: int) -> bool:
 # -- tools ----------------------------------------------------------------------------------
 
 
+CURRENT_WORDS = {"this", "current", "active", "the current window", "this window", "current window", "active window", "the active window"}
+ALL_WORDS = {"all", "everything", "all windows", "all of them", "every window"}
+
+
 def register_window_focus_tools(
-    registry: ToolRegistry, lister: Lister = default_lister, focuser: Focuser = default_focuser
+    registry: ToolRegistry,
+    lister: Lister = default_lister,
+    focuser: Focuser = default_focuser,
+    state_setter: Callable[[int, str], None] = default_state_setter,
+    minimize_all: Callable[[], None] = default_minimize_all,
 ) -> None:
     def _focus(arguments: dict[str, Any]) -> str:
         name = arguments["name"].strip()
@@ -225,5 +261,55 @@ def register_window_focus_tools(
             description="List the open windows on this PC (app, title, minimized or not), most recently used first.",
             parameters={"type": "object", "properties": {}},
             handler=_list,
+        )
+    )
+
+    def _change_state(name: str, state: str) -> dict[str, Any]:
+        past = {"minimize": "minimized", "maximize": "maximized"}[state]
+        windows = lister()
+        if state == "minimize" and name.strip().lower() in ALL_WORDS:
+            minimize_all()
+            return {"status": past, "app": "all windows"}
+        if name.strip().lower() in CURRENT_WORDS or not name.strip():
+            window = windows[0] if windows else None  # front-most window is first in the list
+            candidates: list[str] = []
+        else:
+            window, candidates = pick_window(name, windows)
+        if candidates:
+            return {"error": f"'{name}' could mean several apps; which one?", "candidates": candidates}
+        if window is None:
+            return {"error": f"There's no open window matching '{name}'."}
+        state_setter(window.hwnd, state)
+        logger.info("%s %s (%s)", past.capitalize(), window.process, window.title[:60])
+        return {"status": past, "app": window.process.removesuffix(".exe"), "window": window.title}
+
+    def _state_handler(state: str):
+        def handler(arguments: dict[str, Any]) -> str:
+            try:
+                return json.dumps(_change_state(arguments.get("name", ""), state))
+            except UnsupportedPlatformError as exc:
+                return json.dumps({"error": str(exc)})
+            except Exception as exc:  # noqa: BLE001
+                return json.dumps({"error": f"Couldn't {state} it: {exc}"})
+
+        return handler
+
+    registry.register(
+        Tool(
+            name="minimize_window",
+            description=(
+                "Minimize an app's window to the taskbar ('minimize discord'). name 'this'/'current' (or omitted) means the "
+                "window in front; 'all'/'everything' minimizes every window."
+            ),
+            parameters={"type": "object", "properties": {"name": {"type": "string"}}},
+            handler=_state_handler("minimize"),
+        )
+    )
+    registry.register(
+        Tool(
+            name="maximize_window",
+            description="Maximize an app's window to fill the screen ('maximize chrome'). name 'this'/'current' means the front window.",
+            parameters={"type": "object", "properties": {"name": {"type": "string"}}},
+            handler=_state_handler("maximize"),
         )
     )

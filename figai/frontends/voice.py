@@ -18,7 +18,13 @@ from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
-from figai.voice.shortcuts import is_help_phrase, is_reset_phrase, match_focus_window, match_slack_post
+from figai.voice.shortcuts import (
+    is_help_phrase,
+    is_reset_phrase,
+    match_focus_window,
+    match_slack_post,
+    match_window_action,
+)
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
@@ -92,9 +98,48 @@ def build_command_handler(
         _deliver(text, reply)
         return True
 
+    def _tool(name: str, arguments: dict) -> dict:
+        auto = getattr(session, "auto_confirm", None)
+        with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()):
+            result = session.loop.tools.execute(name, json.dumps(arguments))
+        logger.info("Voice shortcut %s %s -> %s", name, arguments, result[:200])
+        try:
+            data = json.loads(result)
+        except ValueError:
+            data = {}
+        return data if isinstance(data, dict) else {}
+
+    def _try_window_action(text: str) -> bool:
+        match = match_window_action(text)
+        if match is None:
+            return False
+        target = match.target
+        if match.action == "close":
+            if target == "current":  # close whatever app is in front
+                windows = _tool("list_windows", {}).get("windows") or []
+                if not windows:
+                    _deliver(text, "I can't tell which window is in front.")
+                    return True
+                target = windows[0]["app"]
+            data = _tool("close_program", {"name": target})
+            if data.get("status") == "closed":
+                reply = f"Closed {data.get('program', target)}."
+            elif data.get("status") == "asked_to_close":
+                reply = f"I asked {data.get('program', target)} to close, but it's still open -- it may be waiting on a save prompt."
+            else:
+                reply = f"I couldn't close {target}: {data.get('error', 'unknown error')}"
+        else:
+            data = _tool(f"{match.action}_window", {"name": "" if target == "current" else target})
+            if data.get("status") in ("minimized", "maximized"):
+                reply = f"{data['status'].capitalize()} {data.get('app', target)}."
+            else:
+                reply = f"I couldn't {match.action} {target}: {data.get('error', 'unknown error')}"
+        _deliver(text, reply)
+        return True
+
     def _try_shortcut(text: str) -> bool:
         """Posting/DM and window phrasings are handled in code so they work with any chat model."""
-        if _try_focus(text):
+        if _try_focus(text) or _try_window_action(text):
             return True
         post = match_slack_post(text, _channel_names())
         if post is None:

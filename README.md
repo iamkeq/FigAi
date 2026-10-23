@@ -220,7 +220,9 @@ the way clicking its X does, so unsaved work still gets its prompt. A stuck app 
 that always asks first, even by voice. System processes and Fig himself are never closed.
 
 "Bring discord up" (also "pull up spotify", "switch to chrome", "bring chrome to the front") brings that app's
-window to the front, restoring it if it's minimized -- and starts the app if it isn't running. By voice this is
+window to the front, restoring it if it's minimized. "Minimize discord", "minimize this", "minimize everything",
+"maximize chrome" and "close spotify" / "quit steam" / "close this" work the same way by voice (closing is polite, like clicking X,
+so unsaved work still asks; "close everything" is deliberately not a shortcut) -- and starts the app if it isn't running. By voice this is
 matched in code, so it's instant and works with any chat model. If Windows refuses to take focus away from another
 window he says so rather than claiming success. (Windows on other virtual desktops aren't found yet.)
 
