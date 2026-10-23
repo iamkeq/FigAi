@@ -61,6 +61,7 @@ from figai.tools.version_info import register_version_info_tool
 from figai.tools.web import register_open_url_tool
 from figai.tools.web_search import register_web_search_tool
 from figai.tools.window import register_active_window_tool
+from figai.tools.window_focus import register_window_focus_tools
 
 SKILLS_ROOT = Path("skills")
 MessageSender = Callable[[str, str, "str | None"], None]
@@ -123,6 +124,7 @@ def build_tool_registry(
 
     register_clipboard_tools(registry)
     register_active_window_tool(registry)
+    register_window_focus_tools(registry)
     register_notification_tool(registry)
     register_media_key_tool(registry)
     register_obs_tools(registry, build_obs_client_factory(config))

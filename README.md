@@ -219,6 +219,11 @@ menu (`allow_start_menu_apps: false` limits it to the allowlist). "Close spotify
 the way clicking its X does, so unsaved work still gets its prompt. A stuck app can be force-killed, but
 that always asks first, even by voice. System processes and Fig himself are never closed.
 
+"Bring discord up" (also "pull up spotify", "switch to chrome", "bring chrome to the front") brings that app's
+window to the front, restoring it if it's minimized -- and starts the app if it isn't running. By voice this is
+matched in code, so it's instant and works with any chat model. If Windows refuses to take focus away from another
+window he says so rather than claiming success. (Windows on other virtual desktops aren't found yet.)
+
 In Slack replies "in chat" means #general, and "DM me" posts a direct message that tags you.
 
 #### Keeping conversations short

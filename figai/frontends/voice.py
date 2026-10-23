@@ -18,7 +18,7 @@ from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
-from figai.voice.shortcuts import is_help_phrase, is_reset_phrase, match_slack_post
+from figai.voice.shortcuts import is_help_phrase, is_reset_phrase, match_focus_window, match_slack_post
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
 
 logger = get_logger("voice")
@@ -69,8 +69,33 @@ def build_command_handler(
             logger.exception("Could not list Slack channels for voice matching")
             return []
 
+    def _try_focus(text: str) -> bool:
+        app = match_focus_window(text)
+        if app is None:
+            return False
+        auto = getattr(session, "auto_confirm", None)
+        with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()):
+            result = session.loop.tools.execute("focus_window", json.dumps({"name": app}))
+        logger.info("Voice shortcut focus -> %s: %s", app, result[:200])
+        try:
+            data = json.loads(result)
+        except ValueError:
+            data = {}
+        if data.get("status") == "focused":
+            reply = f"Brought up {data.get('app', app)}."
+        elif data.get("status") == "launched":
+            reply = f"{data.get('program', app)} wasn't open, so I started it."
+        elif data.get("status") == "asked":
+            reply = data.get("note", f"I asked Windows to show {app}.")
+        else:
+            reply = f"I couldn't bring up {app}: {data.get('error', result)}"
+        _deliver(text, reply)
+        return True
+
     def _try_shortcut(text: str) -> bool:
-        """Posting/DM phrasings are handled in code so they work with any chat model."""
+        """Posting/DM and window phrasings are handled in code so they work with any chat model."""
+        if _try_focus(text):
+            return True
         post = match_slack_post(text, _channel_names())
         if post is None:
             return False
