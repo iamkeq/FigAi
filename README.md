@@ -226,6 +226,18 @@ costlier. Fig keeps at most `conversation.max_messages` (30) per conversation, a
 for `voice_idle_minutes` (10) starts fresh, and so does your Slack DM after `dm_idle_minutes` (120); channel threads
 keep going. Say "start over" / "new session" by voice, or send `!new` in Slack, to reset one right now.
 
+#### Cron jobs and other agents
+
+- **Cron:** ask Fig to schedule, pause, resume or delete jobs on the home server ("run backup.sh every night at 3am").
+  He shows the exact line, asks for a yes (even by voice), saves the old crontab to `~/.fig-crontab.bak`, applies it
+  and checks it landed. He only edits jobs he created (tagged `# fig:<name>`); everything else in the crontab is left
+  untouched. "Show the cron log" tells you whether a job actually ran. Set `cron_host_alias` to pick the server.
+- **Hermes / OpenClaw:** list them under `agents:` in `config.yaml` (`kind`, and `host`: `local` or an SSH alias).
+  "Ask hermes ..." runs the agent's one-shot command and returns the reply. "Is openclaw down?" runs read-only checks
+  (processes, ports, systemd units, containers, its own status command, recent logs with secrets redacted, disk and
+  memory) in one SSH connection so he can explain what's wrong; "restart openclaw" asks first. The default commands are
+  best guesses from each project's CLI docs -- if a command fails he says which setting to fix.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the

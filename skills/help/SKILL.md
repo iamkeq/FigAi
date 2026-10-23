@@ -91,6 +91,17 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - "obs status" / "start recording" / "stop recording" / "start streaming" / "stop streaming"
 - "switch OBS to the <name> scene"
 
+## Cron jobs (on the home server)
+- "what cron jobs are on turbo-plex?" / "show the cron log"
+- "run /home/dave/backup.sh every night at 3am" / "pause the backup job" / "resume it" / "delete the backup job"
+- Always shows the exact change and asks first (even by voice), backs up the old crontab, and only touches jobs Fig created (tagged `# fig:<name>`).
+
+## Other agents (Hermes, OpenClaw)
+- "ask hermes what it's working on" / "tell openclaw to check the weather" -- runs the agent's own command and returns its reply
+- "is openclaw down? why?" -- read-only checks (processes, ports, services, status command, logs, disk/memory) and a diagnosis
+- "restart openclaw" -- asks first; by voice it just happens
+- Set up under `agents:` in config.yaml (which machine, and the commands if yours differ from the defaults).
+
 ## Servers and learning
 - "run <command> on the server" (asks first, shows the exact command)
 - "learn how to <procedure>" -- drafts a skill; nothing runs until you `!approve` it
