@@ -81,3 +81,23 @@ def is_help_phrase(text: str) -> bool:
     while words and words[0] in ("hey", "ok", "okay", "please", "fig"):
         words.pop(0)
     return " ".join(words) in HELP_PHRASES
+
+
+NOT_AN_APP = {"me", "us", "him", "her", "them", "it", "that", "this", "these", "those", "my", "your", "a", "an"}
+FOCUS_PATTERN = re.compile(
+    rf"{FILLER}(?:please\s+)?"
+    r"(?:(?:bring\s+up|pull\s+up|pop\s+up|switch\s+to|focus\s+on|focus|bring)\s+(?:the\s+)?(?P<app>[a-z0-9+#.'\- ]{2,40}?))"
+    r"(?:\s+(?:up|window|please|to\s+the\s+(?:front|foreground)|forward|on\s+(?:the\s+)?screen))*[.!?]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def match_focus_window(text: str) -> str | None:
+    """"bring discord up" / "pull up spotify" / "switch to chrome" -> the app name, else None."""
+    found = FOCUS_PATTERN.match(text.strip())
+    if not found:
+        return None
+    app = re.sub(r"\s+", " ", found.group("app")).strip(" .").lower()
+    if not app or app.split()[0] in NOT_AN_APP:
+        return None
+    return app

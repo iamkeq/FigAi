@@ -75,6 +75,8 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 - "take a screenshot" / "what's on my clipboard?" / "copy <text> to the clipboard"
 - "what window is active?" / "battery?" / "network status" / "system status" / "top 5 programs by memory"
 - "show a notification: <text>" / "play", "pause", "next track", "volume up", "mute"
+- "bring discord up" / "pull up spotify" / "switch to chrome" -- brings that window to the front (restores it if minimized; starts the app if it isn't open)
+- "what windows do I have open?"
 - "open spotify" / "open calculator" / "open steam" -- allowlisted programs, then anything in your Start menu
 - "close spotify" / "close chrome" -- closes it politely (like clicking X); if it won't close, "force close it" (always asks)
 - Never closes system processes or Fig himself
