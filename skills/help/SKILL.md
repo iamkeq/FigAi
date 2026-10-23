@@ -10,7 +10,8 @@ Two kinds of triggers. **`!commands`** are exact and instant (no model involved,
 When the user asks for help, show the relevant section(s) below, not the whole sheet unless they ask for everything.
 
 ## Commands
-- `!help [topic]` -- this sheet, or one section (e.g. `!help email`)
+- `!help` -- this menu; `!help <topic>` one topic (e.g. `!help email`); `!help all` everything
+- `!tools [word]` -- every tool I have, auto-generated (e.g. `!tools cron`)
 - `!status` -- online, uptime, model, last error
 - `!health` -- check OpenRouter, vault, Gmail, Chrome bridge, recent errors
 - `!logs [errors|warnings|tools|all] [count]` and `!errors` -- recent log records

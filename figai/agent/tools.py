@@ -45,6 +45,10 @@ class ToolRegistry:
     def __contains__(self, name: str) -> bool:
         return name in self._tools
 
+    def describe(self) -> list[tuple[str, str]]:
+        """[(name, description)] for every registered tool."""
+        return [(tool.name, tool.description) for tool in self._tools.values()]
+
     def to_openai_tools(self) -> list[dict[str, Any]]:
         return [tool.to_openai_schema() for tool in self._tools.values()]
 

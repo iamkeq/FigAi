@@ -185,8 +185,10 @@ down, nothing can post -- check `logs\update.log`.)
 
 #### Help: what can Fig do?
 
-`!help` shows a cheat sheet of every `!command` and example phrase, and `!help email` (or
-`briefing`, `vault`, `reminders`, ...) shows one section. You can also just ask "what can you
+`!help` is a menu: the commands, then one line per topic. `!help email` (or `briefing`, `vault`,
+`reminders`, ...) shows how to ask for that topic, `!help all` shows everything, and `!tools` lists every
+tool Fig has, generated from the live registry so it can never go stale (`!tools cron` filters it).
+By voice, "help" or "what can you do" sends the menu to your Slack DM. You can also just ask "what can you
 do?" -- the `help` skill answers from the same sheet, which lives in `skills/help/SKILL.md`.
 When you add a feature, add its phrases there; a test fails if a `!command` is missing.
 

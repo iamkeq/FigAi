@@ -17,6 +17,7 @@ from typing import Any, Callable
 from figai.agent.history import is_idle, trim_history
 from figai.agent.loop import Message
 from figai.config import Config
+from figai import help as help_menu
 from figai.linkify import shorten_links
 from figai.logging_setup import get_logger
 from figai.skills_system.loader import SkillError
@@ -156,6 +157,8 @@ class SlackRouter:
             return self.logs_text(text)
         if UPDATE_NOW_PATTERN.match(text):
             return self.update_now()
+        if text == "!tools" or text.startswith("!tools "):
+            return self.tools_text(text.removeprefix("!tools").strip())
         if text == "!help" or text.startswith("!help "):
             return self.help_text(text.removeprefix("!help").strip())
         if text == "!briefing" or text.startswith("!briefing "):
@@ -235,26 +238,19 @@ class SlackRouter:
             return "Pulled the latest code. Restarting in a few seconds..."
         return str(result.get("error", result))
 
-    def help_text(self, topic: str) -> str:
-        """`!help` shows the whole cheat sheet (the help skill's body); `!help email` just that section."""
+    def help_text(self, query: str) -> str:
+        """`!help` is the menu; `!help email` one topic; `!help all` everything."""
         try:
             body = self.session.loader.get_instructions("help")
         except SkillError:
             return "The help skill isn't installed."
-        parts = re.split(r"(?m)^## ", body)[1:]
+        return help_menu.topic(body, query) if query.strip() else help_menu.menu(body)
 
-        def render(part: str) -> str:
-            heading, _, rest = part.strip().partition("\n")
-            return f"*{heading}*\n{rest}"
-
-        topic = topic.lower().strip()
-        if not topic:
-            return "\n\n".join(["*Fig cheat sheet* (`!help <topic>` for one section)", *map(render, parts)])
-        matches = [p for p in parts if topic in p.split("\n", 1)[0].lower()]
-        if not matches:
-            names = ", ".join(p.split("\n", 1)[0].strip().lower() for p in parts)
-            return f"No help section matches '{topic}'. Topics: {names}"
-        return "\n\n".join(map(render, matches))
+    def tools_text(self, query: str) -> str:
+        tools = getattr(getattr(self.session, "loop", None), "tools", None)
+        if tools is None:
+            return "I can't list my tools right now."
+        return help_menu.tools_list(help_menu.describe_registry(tools), query)
 
     def briefing_command(self, argument: str) -> str:
         """`!briefing` (status), `on`, `off`, `now`, `time HH:MM`, `email on|off`."""

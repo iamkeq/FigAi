@@ -497,13 +497,15 @@ def _help_router(tmp_path: Path) -> SlackRouter:
     return router
 
 
-def test_help_shows_whole_sheet_or_one_topic(tmp_path: Path) -> None:
+def test_help_is_a_menu_with_topics_and_details_on_request(tmp_path: Path) -> None:
     router = _help_router(tmp_path)
-    everything = router.handle_text("C1", "!help")
-    assert "*Commands*" in everything and "*Email (read-only)*" in everything
+    menu = router.handle_text("C1", "!help")
+    assert "*Fig help menu*" in menu and "*Commands*" in menu and "`!help <topic>`" in menu
+    assert "• *Email (read-only)*" in menu and "summarize my last 5 emails" not in menu.split("*Topics*")[0]
     only_email = router.handle_text("C1", "!help email")
     assert "summarize my last 5 emails" in only_email and "*Reminders*" not in only_email
-    assert "No help section matches" in router.handle_text("C1", "!help bogus")
+    assert "*Reminders*" in router.handle_text("C1", "!help all")
+    assert "No help matches" in router.handle_text("C1", "!help bogus")
 
 
 def test_every_bang_command_is_documented_in_the_help_skill(tmp_path: Path) -> None:
