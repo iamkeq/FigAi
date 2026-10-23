@@ -14,6 +14,8 @@ import json
 import threading
 
 from figai.agent.tools import ToolRegistry
+from figai.agents.manager import AgentManager, build_specs, make_runner
+from figai.agents.tools import register_agent_tools
 from figai.briefing.briefing import BriefingManager, BriefingSources, build_briefing
 from figai.briefing.tools import register_briefing_tools
 from figai.brain_map.tools import register_brain_map_tool
@@ -36,6 +38,7 @@ from figai.skills_system.loader import SkillLoader
 from figai.ssh.local_vault import LocalVaultBackend
 from figai.ssh.memory import load_index_note, register_memory_tools
 from figai.ssh.remote_vault import RemoteVaultBackend
+from figai.ssh.cron_tools import register_cron_tools
 from figai.ssh.run import register_ssh_run_tools
 from figai.tools.channels import ChannelLister, register_list_channels_tool
 from figai.tools.clipboard import register_clipboard_tools
@@ -100,6 +103,8 @@ def build_tool_registry(
     loader.register_all_tools(registry)
 
     register_ssh_run_tools(registry, config, confirmations)
+    register_cron_tools(registry, config, confirmations)
+    register_agent_tools(registry, AgentManager(build_specs(config.app.agents), make_runner(config)), confirmations)
     register_memory_tools(registry, config, remote_factory, local_vault, confirmations)
 
     register_system_info_tools(registry)

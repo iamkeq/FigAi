@@ -84,3 +84,20 @@ briefing:
   # channel: "C0123456789"  # Slack channel ID; default is your DM
   include_email: true
   email_limit: 15
+
+# Other AI agents Fig can talk to and troubleshoot. `host` is "local" (this PC) or an SSH alias from .env
+# (e.g. SSH_HOST_TURBOPLEX=...). Defaults per `kind` are best guesses -- override any command if yours differ.
+# cron_host_alias: "turboplex"   # whose crontab Fig manages (default: the vault's host)
+# agents:
+#   - name: openclaw
+#     kind: openclaw
+#     host: turboplex
+#     # ask_command: "openclaw agent --message {message}"
+#     # status_commands: ["openclaw status", "openclaw gateway status"]
+#     # restart_command: "openclaw gateway restart"
+#     # services: ["openclaw-gateway"]        # systemd units to inspect
+#     # log_paths: ["/home/dave/.openclaw/logs/gateway.log"]
+#     # env_setup: "source ~/.nvm/nvm.sh"     # if node/npm tools aren't on a login shell's PATH
+#   - name: hermes
+#     kind: hermes
+#     host: local

@@ -26,8 +26,10 @@ RESOLVERS = {
     "update_fig": "resolve_update_fig",
     "add_media": "resolve_add_media",
     "memory_move": "resolve_memory_change",
+    "agent_restart": "resolve_agent_restart",
 }
-# Never auto-confirmed, whatever the setting: memory_delete, memory_overwrite, ssh_run, config_change.
+# Never auto-confirmed, whatever the setting: memory_delete, memory_overwrite, ssh_run, config_change,
+# cron_change, force_close.
 
 
 class AutoConfirm:

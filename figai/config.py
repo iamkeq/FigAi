@@ -89,6 +89,23 @@ class VoiceConfig(BaseModel):
     no_speech_timeout_seconds: float = 5.0
 
 
+class AgentConfig(BaseModel):
+    """Another AI agent Fig can talk to and look after (Hermes, OpenClaw, ...), on this PC or a server.
+    Only `name`, `kind` and `host` are needed; the rest default from `kind` and can be overridden."""
+
+    name: str
+    kind: Literal["openclaw", "hermes", "custom"] = "custom"
+    host: str = "local"  # "local" (this PC) or an SSH host alias from .env
+    ask_command: str | None = None  # shell template; {message} is inserted, already quoted
+    status_commands: list[str] | None = None  # read-only commands run when diagnosing
+    restart_command: str | None = None
+    services: list[str] | None = None  # systemd unit names to inspect (servers only)
+    log_paths: list[str] = Field(default_factory=list)  # log files to tail when diagnosing
+    process_keyword: str | None = None  # how to spot its processes; defaults to the kind
+    port: int | None = None  # a port it should be listening on
+    env_setup: str | None = None  # shell snippet run first on a server, e.g. "source ~/.nvm/nvm.sh"
+
+
 class BriefingConfig(BaseModel):
     """Defaults for the daily briefing; `!briefing on|off|time` changes them from chat
     and those changes are remembered across restarts."""
@@ -210,6 +227,9 @@ class AppConfig(BaseModel):
     vault: VaultConfig
     allowlisted_folders: list[str] = Field(default_factory=list)
     allowlisted_programs: dict[str, str] = Field(default_factory=dict)
+    agents: list[AgentConfig] = Field(default_factory=list)
+    # SSH host alias whose crontab Fig manages; defaults to the vault's host.
+    cron_host_alias: str | None = None
     # Let "open <app>" also launch anything in your Windows Start menu (not just the allowlist above).
     allow_start_menu_apps: bool = True
     limits: LimitsConfig = Field(default_factory=LimitsConfig)

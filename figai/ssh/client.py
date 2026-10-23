@@ -84,6 +84,27 @@ def run_command(host: SshHost, command: str, timeout: int = 30) -> CommandResult
         client.close()
 
 
+def run_command_with_input(host: SshHost, command: str, stdin_text: str, timeout: int = 30) -> CommandResult:
+    """Like run_command, but feeds `stdin_text` to the command (e.g. `crontab -`)."""
+    client = connect(host)
+    try:
+        stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+        stdin.write(stdin_text)
+        stdin.channel.shutdown_write()
+        try:
+            exit_code = stdout.channel.recv_exit_status()
+        except Exception:
+            return CommandResult(stdout="", stderr="", exit_code=-1, timed_out=True)
+        return CommandResult(
+            stdout=stdout.read().decode("utf-8", errors="replace")[:20000],
+            stderr=stderr.read().decode("utf-8", errors="replace")[:20000],
+            exit_code=exit_code,
+            timed_out=False,
+        )
+    finally:
+        client.close()
+
+
 def execute(client: Any, command: str, timeout: int) -> CommandResult:
     """Runs `command` on an already-connected client. Split out from `run_command`
     so tests can exercise it against a fake client without any real network I/O."""
