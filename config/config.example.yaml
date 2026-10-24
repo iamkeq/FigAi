@@ -57,6 +57,10 @@ voice:
   silence_seconds: 1.2
   max_command_seconds: 15
   auto_confirm: true             # spoken requests just happen; delete/overwrite/server commands/settings still ask
+  feedback: true                 # spoken "Yes, sir." / "All set, sir." and spoken yes/no confirmations
+  honorific: "sir"               # "" drops it; or "ma'am", "boss"...
+  # speech_voice: "Microsoft David Desktop"   # a Windows voice name; default is the system voice
+  speech_rate: 0                 # -10 (slow) .. 10 (fast)
   chime: true                    # play a "bing" when the wake word is heard -- talk after it
   no_speech_timeout_seconds: 5   # give up if you say nothing for this long after the bing
 

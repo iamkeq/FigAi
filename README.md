@@ -204,6 +204,16 @@ Posting phrases ("type in general the word potato", "post in chat that ...", "DM
 code (figai/voice/shortcuts.py) rather than left to the chat model, so they work even when a small or free model
 would just answer in text instead of calling the tool.
 
+#### Spoken feedback
+
+After the bing, Fig answers out loud with Windows' built-in voice (offline, nothing to install): "Yes, sir." as soon
+as he's got your command, and "All set, sir." when it's done -- or "I'm afraid that didn't work, sir." A plain question
+just gets "Yes, sir." since the answer is in your Slack DM. The fixed phrases are rendered once into
+`data/voice_cache/` at startup, so they play instantly. When something needs a confirmation he reads out what he's
+about to do and asks "Shall I proceed, sir?"; say the wake word, then "yes" / "go ahead" to carry it out, or "no" /
+"cancel that" to drop it (that applies to the most recent pending action, within the usual 5 minutes).
+`voice.feedback: false` keeps just the bing; `honorific`, `speech_voice` and `speech_rate` tune it.
+
 Voice shares Fig's Slack session, so spoken commands can do everything Slack can -- post to a channel
 ("post in general that dinner is at 6"), set reminders (they come to your DM), take screenshots. Replies
 land in your Slack DM by default; `voice.reply_to: notification` or `both` brings back the popup.

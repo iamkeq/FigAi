@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from figai.logging_setup import get_logger
 
@@ -36,6 +37,7 @@ class ToolRegistry:
         self._tools: dict[str, Tool] = {}
         # Optional (tool name, result) -> replacement result; see figai/agent/auto_confirm.py.
         self.result_hook: Callable[[str, str], str | None] | None = None
+        self._observers: list[list[tuple[str, str]]] = []
 
     def register(self, tool: Tool) -> None:
         if tool.name in self._tools:
@@ -44,6 +46,17 @@ class ToolRegistry:
 
     def __contains__(self, name: str) -> bool:
         return name in self._tools
+
+    @contextmanager
+    def observe(self) -> Iterator[list[tuple[str, str]]]:
+        """Collects (tool name, result) for every tool run inside the block -- used to tell how a
+        spoken command went (did it act? fail? ask for a confirmation?)."""
+        seen: list[tuple[str, str]] = []
+        self._observers.append(seen)
+        try:
+            yield seen
+        finally:
+            self._observers.remove(seen)
 
     def describe(self) -> list[tuple[str, str]]:
         """[(name, description)] for every registered tool."""
@@ -55,6 +68,12 @@ class ToolRegistry:
     def execute(self, name: str, arguments_json: str) -> str:
         """Runs a tool by name. Never raises -- tool failures become a JSON error
         string fed back to the model, so one bad call can't crash the agent loop."""
+        result = self._execute(name, arguments_json)
+        for seen in self._observers:
+            seen.append((name, result))
+        return result
+
+    def _execute(self, name: str, arguments_json: str) -> str:
         tool = self._tools.get(name)
         if tool is None:
             logger.error("Model requested unknown tool: %s", name)
@@ -82,7 +101,7 @@ class ToolRegistry:
                 replacement = None
             if replacement is not None:
                 logger.info("Tool %s result replaced by hook: %s", name, _truncate(replacement))
-                return replacement
+                result = replacement
         return result
 
 
