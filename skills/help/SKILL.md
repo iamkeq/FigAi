@@ -124,6 +124,11 @@ When the user asks for help, show the relevant section(s) below, not the whole s
   Still asks first: deleting or overwriting notes, commands on your servers, changing Fig's settings.
   (`voice.auto_confirm: false` makes voice ask for everything.)
 
+## Voice feedback (sounds and spoken replies)
+- The bing = I'm listening. Then "Yes, sir." when I've got your command, and "All set, sir." when it's done ("I'm afraid that didn't work, sir." if not). Plain questions just get "Yes, sir." -- the answer is in your DM.
+- Confirmations are spoken: I read out what I'm about to do and ask "Shall I proceed, sir?" -- say "hey jarvis", then "yes" (or "go ahead") to do it, or "no" / "cancel that" to drop it.
+- Change or silence it in config.yaml under `voice:` -- `feedback: false` (just the bing), `honorific: ""` or "ma'am", `speech_voice`, `speech_rate`.
+
 ## Fresh starts
 - Long conversations are trimmed (oldest messages first) and idle ones start over: voice after 10 minutes quiet, your DM after 2 hours.
 - By voice: "start over" / "new session" / "forget everything". In Slack: `!new`.

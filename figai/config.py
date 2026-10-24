@@ -85,6 +85,12 @@ class VoiceConfig(BaseModel):
     # Things you ask for out loud just happen (post, send file, move note, update, add media);
     # delete/overwrite/server commands/settings changes still ask. false = ask for everything.
     auto_confirm: bool = True
+    # Spoken feedback (offline, Windows' built-in voice): "Yes, sir." when you've given a command,
+    # "All set, sir." when it's done, and a spoken yes/no for confirmations. false = just the bing.
+    feedback: bool = True
+    honorific: str = "sir"  # "" drops it ("Yes.", "All set.")
+    speech_voice: str | None = None  # a Windows voice name, e.g. "Microsoft David Desktop"
+    speech_rate: int = Field(default=0, ge=-10, le=10)
     chime: bool = True  # play a "bing" when the wake word is heard, so you know when to talk
     no_speech_timeout_seconds: float = 5.0
 

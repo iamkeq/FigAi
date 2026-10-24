@@ -152,3 +152,39 @@ def match_open_app(text: str) -> str | None:
     if not app or app.split()[0] in NOT_AN_APP or len(app.split()) > 4 or NOT_AN_APP_TARGET.search(app):
         return None
     return app
+
+
+YES_PHRASES = {
+    "yes", "yeah", "yep", "yup", "yes please", "yes do it", "do it", "go ahead", "go for it", "confirm", "confirmed",
+    "proceed", "sure", "affirmative", "yes sir", "absolutely", "please do", "okay do it", "ok do it", "that's right",
+}
+NO_PHRASES = {
+    "no", "nope", "no thanks", "no thank you", "cancel", "cancel that", "never mind", "nevermind", "don't", "do not",
+    "stop", "abort", "negative", "forget it", "no sir", "don't do it", "do not do it",
+}
+
+
+def _plain(text: str) -> str:
+    words = re.findall(r"[a-z']+", text.lower())
+    while words and words[0] in ("hey", "ok", "okay", "fig", "jarvis") and " ".join(words) not in YES_PHRASES | NO_PHRASES:
+        words.pop(0)
+    return " ".join(words)
+
+
+YES_LEADS = {"yes", "yeah", "yep", "yup", "sure", "proceed", "confirm", "confirmed", "affirmative", "absolutely"}
+NO_LEADS = {"no", "nope", "cancel", "negative", "stop", "abort", "nevermind"}
+LEAD_MAX_WORDS = 3  # "no, cancel that" / "yes sir please" -- but not "yes what time is it"
+
+
+def _says(text: str, phrases: set[str], leads: set[str]) -> bool:
+    plain = _plain(text)
+    words = plain.split()
+    return plain in phrases or (0 < len(words) <= LEAD_MAX_WORDS and words[0] in leads)
+
+
+def is_yes_phrase(text: str) -> bool:
+    return _says(text, YES_PHRASES, YES_LEADS)
+
+
+def is_no_phrase(text: str) -> bool:
+    return _says(text, NO_PHRASES, NO_LEADS)

@@ -30,6 +30,19 @@ class ConfirmationStore:
         self._pending[token] = PendingAction(action_type, payload, preview, time.monotonic())
         return token
 
+    def latest(self) -> tuple[str, str, str] | None:
+        """(token, action type, preview) of the most recent pending action that hasn't expired."""
+        if not self._pending:
+            return None
+        token = next(reversed(self._pending))
+        action = self._pending[token]
+        if time.monotonic() - action.created_at > self.timeout_seconds:
+            return None
+        return token, action.action_type, action.preview
+
+    def cancel(self, token: str) -> bool:
+        return self._pending.pop(token, None) is not None
+
     def peek_type(self, token: str) -> str | None:
         """The action type of a pending token (None if unknown), without consuming it."""
         action = self._pending.get(token)

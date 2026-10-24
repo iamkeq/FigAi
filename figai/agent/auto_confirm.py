@@ -80,3 +80,15 @@ class AutoConfirm:
             )
 
         return _after
+
+
+# Every confirmable action and the tool that carries it out -- used when you answer "yes" by voice.
+ALL_RESOLVERS = {
+    **RESOLVERS,
+    "memory_delete": "resolve_memory_change",
+    "memory_overwrite": "resolve_memory_write",
+    "ssh_run": "resolve_ssh_command",
+    "config_change": "resolve_config_change",
+    "cron_change": "resolve_cron_change",
+    "force_close": "resolve_force_close",
+}

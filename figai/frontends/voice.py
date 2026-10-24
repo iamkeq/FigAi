@@ -6,27 +6,33 @@ from __future__ import annotations
 
 import contextlib
 import json
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
 
 from figai import help as help_menu
 from figai.agent.history import is_idle, trim_history
+from figai.agent.auto_confirm import ALL_RESOLVERS
 from figai.agent.loop import Message
 from figai.agent.session import AgentSession
 from figai.config import Config
 from figai.logging_setup import get_logger
 from figai.tools.notifications import default_notifier
 from figai.voice.chime import play_listening_chime
+from figai.voice.outcome import classify
 from figai.voice.shortcuts import (
     is_help_phrase,
+    is_no_phrase,
     is_reset_phrase,
+    is_yes_phrase,
     match_focus_window,
     match_open_app,
     match_slack_post,
     match_window_action,
 )
 from figai.voice.listener import VoiceListener, VoiceListenerConfig
+from figai.voice.speech import Speaker
 
 logger = get_logger("voice")
 
@@ -42,6 +48,7 @@ def build_command_handler(
     session: AgentSession,
     notifier: Callable[[str, str], None] = default_notifier,
     clock: Callable[[], float] = time.time,
+    speaker: Speaker | None = None,
 ) -> Callable[[str], None]:
     conversation: list[Message] = []
     last_command_at: list[float | None] = [None]
@@ -49,10 +56,21 @@ def build_command_handler(
     reply_to = config.app.voice.reply_to
     settings = config.app.conversation
 
-    def _deliver(text: str, reply: str) -> None:
+    def _sound(kind: str | None, preview: str | None = None) -> None:
+        """Spoken feedback: "done" -> All set, sir; "fail" -> didn't work; "confirm" -> reads what's about
+        to happen, then asks to proceed; "cancelled" -> Very well. None/"answer" stays quiet."""
+        if speaker is None or kind is None:
+            return
+        if kind == "confirm":
+            speaker.say_then(preview or "", "confirm")
+        elif kind in ("done", "fail", "cancelled"):
+            speaker.play(kind)
+
+    def _deliver(text: str, reply: str, outcome: str | None = None, preview: str | None = None) -> None:
         """Spoken commands answer where you'd expect: in your Slack DM (so the reply is readable
         and any posting, screenshots or reminders work like they do from Slack), with a desktop
         notification as the fallback or the extra, per voice.reply_to."""
+        _sound(outcome, preview)
         sent = False
         if reply_to in ("slack", "both") and session.message_sender is not None:
             try:
@@ -88,15 +106,16 @@ def build_command_handler(
             data = json.loads(result)
         except ValueError:
             data = {}
+        outcome: str | None = "done"
         if data.get("status") == "focused":
             reply = f"Brought up {data.get('app', app)}."
         elif data.get("status") == "launched":
             reply = f"{data.get('program', app)} wasn't open, so I started it."
         elif data.get("status") == "asked":
-            reply = data.get("note", f"I asked Windows to show {app}.")
+            reply, outcome = data.get("note", f"I asked Windows to show {app}."), None
         else:
-            reply = f"I couldn't bring up {app}: {data.get('error', result)}"
-        _deliver(text, reply)
+            reply, outcome = f"I couldn't bring up {app}: {data.get('error', result)}", "fail"
+        _deliver(text, reply, outcome)
         return True
 
     def _tool(name: str, arguments: dict) -> dict:
@@ -119,24 +138,43 @@ def build_command_handler(
             if target == "current":  # close whatever app is in front
                 windows = _tool("list_windows", {}).get("windows") or []
                 if not windows:
-                    _deliver(text, "I can't tell which window is in front.")
+                    _deliver(text, "I can't tell which window is in front.", "fail")
                     return True
                 target = windows[0]["app"]
             data = _tool("close_program", {"name": target})
+            outcome: str | None = "done"
             if data.get("status") == "closed":
                 reply = f"Closed {data.get('program', target)}."
             elif data.get("status") == "asked_to_close":
                 reply = f"I asked {data.get('program', target)} to close, but it's still open -- it may be waiting on a save prompt."
+                outcome = None
             else:
-                reply = f"I couldn't close {target}: {data.get('error', 'unknown error')}"
+                reply, outcome = f"I couldn't close {target}: {data.get('error', 'unknown error')}", "fail"
         else:
             data = _tool(f"{match.action}_window", {"name": "" if target == "current" else target})
             if data.get("status") in ("minimized", "maximized"):
-                reply = f"{data['status'].capitalize()} {data.get('app', target)}."
+                reply, outcome = f"{data['status'].capitalize()} {data.get('app', target)}.", "done"
             else:
-                reply = f"I couldn't {match.action} {target}: {data.get('error', 'unknown error')}"
-        _deliver(text, reply)
+                reply, outcome = f"I couldn't {match.action} {target}: {data.get('error', 'unknown error')}", "fail"
+        _deliver(text, reply, outcome)
         return True
+
+    def _pending() -> tuple[str, str, str] | None:
+        store = getattr(session, "confirmations", None)
+        return store.latest() if store is not None else None
+
+    def _confirm(text: str, pending: tuple[str, str, str]) -> None:
+        """You said yes to the action Fig just described: carry it out."""
+        token, action_type, preview = pending
+        resolver = ALL_RESOLVERS.get(action_type)
+        if resolver is None:
+            _deliver(text, f"I don't know how to carry out '{action_type}' by voice -- use Slack.", "fail")
+            return
+        data = _tool(resolver, {"token": token})
+        if data.get("error"):
+            _deliver(text, f"That didn't work: {data['error']}", "fail")
+        else:
+            _deliver(text, f"Done: {preview}", "done")
 
     def _try_open(text: str) -> bool:
         app = match_open_app(text)
@@ -144,7 +182,7 @@ def build_command_handler(
             return False
         data = _tool("open_program", {"name": app})
         if data.get("status") == "launched":
-            _deliver(text, f"Opened {data.get('program', app)}.")
+            _deliver(text, f"Opened {data.get('program', app)}.", "done")
             return True
         if data.get("candidates"):
             _deliver(text, f"'{app}' could mean {', '.join(data['candidates'])} -- which one?")
@@ -167,14 +205,16 @@ def build_command_handler(
             data = json.loads(result)
         except ValueError:
             data = {}
-        outcome = data.get("result", data)
-        if outcome.get("status") == "posted":
-            reply = f"Posted to {outcome.get('to', post.channel)}: {post.message}"
+        result_data = data.get("result", data)
+        preview = None
+        if result_data.get("status") == "posted":
+            reply, outcome = f"Posted to {result_data.get('to', post.channel)}: {post.message}", "done"
         elif data.get("status") == "awaiting_confirmation":
-            reply = f"{data.get('preview')}. Say the wake word, then yes, to send it."
+            preview = data.get("preview")
+            reply, outcome = f"{preview}. Say the wake word, then yes, to send it.", "confirm"
         else:
-            reply = f"I couldn't post that: {outcome.get('error', result)}"
-        _deliver(text, reply)
+            reply, outcome = f"I couldn't post that: {result_data.get('error', result)}", "fail"
+        _deliver(text, reply, outcome, preview)
         return True
 
     def _on_command(text: str) -> None:
@@ -184,6 +224,18 @@ def build_command_handler(
             logger.info("Voice session idle for over %s min -- starting fresh", settings.voice_idle_minutes)
             conversation.clear()
         last_command_at[0] = now
+
+        pending = _pending()
+        if pending and is_yes_phrase(text):
+            _confirm(text, pending)
+            return
+        if pending and is_no_phrase(text):
+            session.confirmations.cancel(pending[0])
+            _deliver(text, f"Cancelled: {pending[2]}", "cancelled")
+            return
+        if speaker is not None:
+            speaker.play("ack")
+
         if is_help_phrase(text):
             try:
                 _deliver(text, help_menu.menu(session.loader.get_instructions("help")))
@@ -193,7 +245,7 @@ def build_command_handler(
             return
         if is_reset_phrase(text):
             conversation.clear()
-            _deliver(text, "Fresh start -- I've forgotten our conversation.")
+            _deliver(text, "Fresh start -- I've forgotten our conversation.", "done")
             return
         if _try_shortcut(text):
             return
@@ -202,18 +254,24 @@ def build_command_handler(
         try:
             # Same session (and lock) as Slack; tools that need "the current channel" mean your DM.
             auto = getattr(session, "auto_confirm", None)
-            with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()):
+            observe = getattr(getattr(session.loop, "tools", None), "observe", None)
+            with session.run_lock, (auto.voice_turn() if auto else contextlib.nullcontext()), (
+                observe() if observe else contextlib.nullcontext([])
+            ) as seen:
                 session.conversation_context.current_channel = owner
                 session.conversation_context.current_thread_ts = None
                 reply = session.loop.run(conversation)
         except Exception:
             logger.exception("Agent loop failed on voice command")
             conversation.pop()
+            if speaker is not None:
+                speaker.play("fail")
             return
 
         conversation.append({"role": "assistant", "content": reply})
         logger.info("Voice reply: %s", reply)
-        _deliver(text, reply)
+        kind, preview = classify(seen or [])
+        _deliver(text, reply, kind, preview)
 
     return _on_command
 
@@ -228,7 +286,16 @@ def run_voice_frontend(config: Config, session: Optional[AgentSession] = None) -
     from figai.voice.wake_word import OpenWakeWordDetector
 
     session = session or AgentSession(config)
-    _on_command = build_command_handler(config, session)
+    speaker = None
+    if config.app.voice.feedback:
+        speaker = Speaker(
+            Path(config.app.state_path).parent / "voice_cache",
+            honorific=config.app.voice.honorific,
+            voice=config.app.voice.speech_voice,
+            rate=config.app.voice.speech_rate,
+        )
+        threading.Thread(target=speaker.prepare, name="fig-speech-prep", daemon=True).start()
+    _on_command = build_command_handler(config, session, speaker=speaker)
 
     audio_source = MicrophoneAudioSource()
     wake_word_detector = OpenWakeWordDetector(config.app.voice.wake_word_model)
