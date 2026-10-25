@@ -157,6 +157,8 @@ class SlackRouter:
             return self.logs_text(text)
         if UPDATE_NOW_PATTERN.match(text):
             return self.update_now()
+        if text == "!downloads" or text.startswith("!downloads "):
+            return self.downloads_text(text.removeprefix("!downloads").strip().lower())
         if text == "!tools" or text.startswith("!tools "):
             return self.tools_text(text.removeprefix("!tools").strip())
         if text == "!help" or text.startswith("!help "):
@@ -245,6 +247,18 @@ class SlackRouter:
         except SkillError:
             return "The help skill isn't installed."
         return help_menu.topic(body, query) if query.strip() else help_menu.menu(body)
+
+    def downloads_text(self, argument: str) -> str:
+        """`!downloads` -- what's downloading now (SABnzbd, Sonarr, Radarr on turbo-plex); `!downloads recent`."""
+        tools = getattr(getattr(self.session, "loop", None), "tools", None)
+        if tools is None:
+            return "I can't reach my media tools right now."
+        name = "media_recent" if argument in ("recent", "history", "done", "finished") else "media_downloads"
+        try:
+            data = json.loads(tools.execute(name, "{}"))
+        except ValueError:
+            return "I couldn't read the media server's answer."
+        return data.get("summary") or data.get("error", "No answer from the media server.")
 
     def tools_text(self, query: str) -> str:
         tools = getattr(getattr(self.session, "loop", None), "tools", None)

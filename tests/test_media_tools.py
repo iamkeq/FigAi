@@ -78,7 +78,8 @@ def test_inspect_media_service_returns_redacted_library(tmp_path: Path) -> None:
         registry.execute("inspect_media_service", json.dumps({"service": "sonarr", "view": "library"}))
     )
 
-    assert result == [{"title": "Show", "apikey": "[redacted]"}]
+    assert result == {"service": "sonarr", "count": 1, "titles": ["Show"], "truncated": 0}  # compact: no raw dump
+    assert "leak" not in json.dumps(result)
 
 
 def test_propose_add_media_ambiguous_returns_options(tmp_path: Path) -> None:

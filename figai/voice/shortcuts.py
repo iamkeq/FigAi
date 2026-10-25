@@ -188,3 +188,69 @@ def is_yes_phrase(text: str) -> bool:
 
 def is_no_phrase(text: str) -> bool:
     return _says(text, NO_PHRASES, NO_LEADS)
+
+
+QUESTION_LEAD = re.compile(r"^(?:(?:hey|ok|okay|please|fig|can you|could you|tell me|show me|let me know)[, ]+)*(?:what|which|how|show|list|check|is there|are there|any|give me|anything)\b", re.IGNORECASE)
+RECENT_STRONG = re.compile(
+    r"\b(?:recent|recently|lately|finished|completed|last|yesterday|today|came in|did you download|has been downloaded|"
+    r"was downloaded|were downloaded|got downloaded|have been downloaded)\b", re.IGNORECASE,
+)
+CURRENT_NOW = re.compile(r"\b(?:downloading|being downloaded|download queue|in the queue|on the queue|on sab(?:nzbd)?|sab(?:nzbd)?|queue|right now|currently)\b", re.IGNORECASE)
+
+
+def match_media_query(text: str) -> str | None:
+    """"what's downloading" -> "current"; "what was recently downloaded" -> "recent"; else None."""
+    text = text.strip()
+    if not QUESTION_LEAD.match(text):
+        return None
+    mentions = re.search(r"\bdownload|\bsab(?:nzbd)?\b|\bqueue\b", text, re.IGNORECASE)
+    if mentions is None:
+        return None
+    if RECENT_STRONG.search(text):
+        return "recent"
+    if CURRENT_NOW.search(text) or re.search(r"\bdownloads\b", text, re.IGNORECASE):
+        return "current"
+    return "recent" if re.search(r"\bdownloaded\b", text, re.IGNORECASE) else None
+
+
+@dataclass(frozen=True)
+class MediaAdd:
+    title: str
+    service: str | None  # "radarr" (movie), "sonarr" (TV) or None = search both
+    year: int | None = None
+
+
+MEDIA_ADD_PATTERNS = (
+    re.compile(
+        rf"{FILLER}(?:please\s+)?(?:download|grab)(?:\s+me)?(?:\s+(?:the|a|an))?(?:\s+(?P<kind>movie|film|show|series|tv show|tv series|season of))?"
+        r"\s+(?P<title>.+?)(?:\s+(?:in|on|from|to|with|using)\s+(?P<service>sonarr|radarr))?[.!?]?\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"{FILLER}(?:please\s+)?add\s+(?:the\s+)?(?:(?P<kind>movie|film|show|series|tv show)\s+)?(?P<title>.+?)\s+(?:to|in|on)\s+(?P<service>sonarr|radarr)[.!?]?\s*$",
+        re.IGNORECASE,
+    ),
+)
+YEAR_AT_END = re.compile(r"^(?P<title>.+?)\s+\(?(?P<year>(?:19|20)\d{2})\)?$")
+MOVIE_WORDS = {"movie", "film"}
+SHOW_WORDS = {"show", "series", "tv show", "tv series", "season of"}
+
+
+def match_media_add(text: str) -> MediaAdd | None:
+    """"download Dune", "download the movie Heat 1995", "grab the show Andor", "add Fargo to sonarr"."""
+    for pattern in MEDIA_ADD_PATTERNS:
+        found = pattern.match(text.strip())
+        if not found:
+            continue
+        title = found.group("title").strip(" .\"")
+        kind = (found.group("kind") or "").lower()
+        service = (found.group("service") or "").lower() or ("radarr" if kind in MOVIE_WORDS else "sonarr" if kind in SHOW_WORDS else None)
+        year = None
+        with_year = YEAR_AT_END.match(title)
+        if with_year and 1900 <= int(with_year.group("year")) <= 2030:
+            title, year = with_year.group("title").strip(), int(with_year.group("year"))
+        words = title.lower().split()
+        if not title or len(words) > 8 or words[0] in NOT_AN_APP or title.lower() in ("it", "that", "this", "them"):
+            return None
+        return MediaAdd(title, service or None, year)
+    return None

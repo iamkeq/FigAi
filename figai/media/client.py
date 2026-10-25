@@ -81,6 +81,14 @@ def sonarr_add(http: HttpClient, url: str, api_key: str, lookup_result: dict[str
     return _arr_post(http, url, "/api/v3/series", api_key, payload)
 
 
+def sonarr_history(http: HttpClient, url: str, api_key: str, limit: int = 20) -> Any:
+    return _arr_get(
+        http, url, "/api/v3/history", api_key,
+        params={"page": 1, "pageSize": limit, "sortKey": "date", "sortDirection": "descending",
+                "includeSeries": "true", "includeEpisode": "true"},
+    )
+
+
 # -- Radarr -------------------------------------------------------------------
 
 
@@ -94,6 +102,13 @@ def radarr_library(http: HttpClient, url: str, api_key: str) -> Any:
 
 def radarr_queue(http: HttpClient, url: str, api_key: str) -> Any:
     return _arr_get(http, url, "/api/v3/queue", api_key)
+
+
+def radarr_history(http: HttpClient, url: str, api_key: str, limit: int = 20) -> Any:
+    return _arr_get(
+        http, url, "/api/v3/history", api_key,
+        params={"page": 1, "pageSize": limit, "sortKey": "date", "sortDirection": "descending", "includeMovie": "true"},
+    )
 
 
 def radarr_lookup(http: HttpClient, url: str, api_key: str, term: str) -> Any:
@@ -118,12 +133,12 @@ def radarr_add(http: HttpClient, url: str, api_key: str, lookup_result: dict[str
 # -- SABnzbd --------------------------------------------------------------------
 
 
-def sabnzbd_call(http: HttpClient, url: str, api_key: str, mode: str) -> Any:
+def sabnzbd_call(http: HttpClient, url: str, api_key: str, mode: str, **extra: Any) -> Any:
     try:
         response = http.get(
             f"{url.rstrip('/')}/api",
             headers={},
-            params={"apikey": api_key, "mode": mode, "output": "json"},
+            params={"apikey": api_key, "mode": mode, "output": "json", **extra},
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
