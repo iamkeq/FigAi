@@ -87,9 +87,12 @@ When the user asks for help, show the relevant section(s) below, not the whole s
 ## Browser
 - "what tabs do I have open?" / "open <url> in a new tab" (needs the Chrome extension)
 
-## Media servers
-- "sonarr queue" / "radarr library" / "sabnzbd status"
-- "add the movie <title> (<year>)" (asks first)
+## Media servers (Sonarr, Radarr, SABnzbd on turbo-plex)
+- "what's downloading?" / "what's in the queue?" -- SABnzbd, Sonarr and Radarr together; `!downloads` does the same instantly
+- "what was recently downloaded?" / "what finished?" -- `!downloads recent`
+- "download Dune" / "download the movie Heat 1995" / "grab the show Andor" / "add Fargo to sonarr" -- finds it (searches movies and TV if you don't say), asks first in Slack, just does it by voice
+- "sonarr library" / "radarr status" / "sabnzbd history"
+- Needs the API keys in .env, plus either `MEDIA_HOST=<turbo-plex address>` or each service's URL.
 
 ## OBS
 - "obs status" / "start recording" / "stop recording" / "start streaming" / "stop streaming"

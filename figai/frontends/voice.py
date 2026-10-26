@@ -27,6 +27,8 @@ from figai.voice.shortcuts import (
     is_reset_phrase,
     is_yes_phrase,
     match_focus_window,
+    match_media_add,
+    match_media_query,
     match_open_app,
     match_slack_post,
     match_window_action,
@@ -176,6 +178,37 @@ def build_command_handler(
         else:
             _deliver(text, f"Done: {preview}", "done")
 
+    def _try_media(text: str) -> bool:
+        kind = match_media_query(text)
+        if kind is not None:
+            data = _tool("media_downloads" if kind == "current" else "media_recent", {})
+            _deliver(text, data.get("summary") or data.get("error", "I couldn't reach the media server."), "fail" if data.get("error") else None)
+            return True
+        add = match_media_add(text)
+        if add is None:
+            return False
+        arguments: dict = {"title": add.title}
+        if add.service:
+            arguments["service"] = add.service
+        if add.year:
+            arguments["year"] = add.year
+        data = _tool("propose_add_media", arguments)
+        added = data.get("result", data)
+        if added.get("status") == "added":
+            _deliver(text, f"Added {added.get('title')} to {str(added.get('service')).capitalize()} -- it'll start downloading.", "done")
+        elif data.get("status") == "awaiting_confirmation":
+            _deliver(text, f"{data.get('preview')}. Say the wake word, then yes, to add it.", "confirm", data.get("preview"))
+        elif data.get("status") == "ambiguous":
+            options = "; ".join(
+                f"{o.get('title')} ({o.get('year')})" + (f" [{o['kind']}]" if o.get("kind") else "") for o in data.get("options", [])
+            )
+            _deliver(text, f"More than one match: {options}. Tell me which one (add the year, or say movie or show).")
+        elif str(data.get("error", "")).startswith("No match"):
+            return False  # maybe it wasn't a title request at all: let the model have a go
+        else:
+            _deliver(text, f"I couldn't add that: {data.get('error', 'unknown error')}", "fail")
+        return True
+
     def _try_open(text: str) -> bool:
         app = match_open_app(text)
         if app is None:
@@ -191,7 +224,7 @@ def build_command_handler(
 
     def _try_shortcut(text: str) -> bool:
         """Posting/DM and window phrasings are handled in code so they work with any chat model."""
-        if _try_focus(text) or _try_window_action(text) or _try_open(text):
+        if _try_focus(text) or _try_window_action(text) or _try_media(text) or _try_open(text):
             return True
         post = match_slack_post(text, _channel_names())
         if post is None:

@@ -257,6 +257,17 @@ keep going. Say "start over" / "new session" by voice, or send `!new` in Slack, 
   memory) in one SSH connection so he can explain what's wrong; "restart openclaw" asks first. The default commands are
   best guesses from each project's CLI docs -- if a command fails he says which setting to fix.
 
+#### Media (Sonarr, Radarr, SABnzbd on turbo-plex)
+
+These run on the turbo-plex server, so Fig talks to them over your network. In `.env` set
+`MEDIA_HOST=<turbo-plex address>` plus the three API keys (`SONARR_API_KEY`, `RADARR_API_KEY`, `SABNZBD_API_KEY`) and
+the URLs are built for you (`:8989`, `:7878`, `:8080`); or set each `*_URL` yourself. `127.0.0.1` only works if a
+service runs on this PC. Then: "what's downloading?" (or `!downloads`) shows the SABnzbd queue plus the Sonarr and
+Radarr queues; "what was recently downloaded?" (`!downloads recent`) shows what finished; "download Dune" / "download
+the show Andor" looks the title up in Radarr and Sonarr (asks "movie or show?" if both match) and adds it -- by voice
+without a second yes, in Slack after one. Answers are short summaries, not raw dumps, and if one service is down the
+others still answer and the message says which one and where Fig looked.
+
 Whenever Fig starts, it announces "Fig is back online." in the Slack channel
 named by `startup_announcement_channel` in `config.yaml` (default `general`;
 falls back to your DM if that channel isn't found or Fig isn't in it). If the

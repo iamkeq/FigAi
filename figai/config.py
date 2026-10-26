@@ -31,9 +31,12 @@ class ServiceConnection(BaseModel):
     api_key: str
 
     @classmethod
-    def from_env_pair(cls, url_var: str, api_key_var: str) -> "ServiceConnection | None":
+    def from_env_pair(cls, url_var: str, api_key_var: str, default_port: int | None = None) -> "ServiceConnection | None":
         url = os.environ.get(url_var)
         api_key = os.environ.get(api_key_var)
+        media_host = os.environ.get("MEDIA_HOST")  # e.g. turbo-plex's address: one line instead of three URLs
+        if not url and api_key and media_host and default_port:
+            url = f"http://{media_host.strip()}:{default_port}"
         if not url and not api_key:
             return None
         if not url or not api_key:
@@ -192,9 +195,9 @@ class Settings(BaseModel):
                 slack_app_token=_require_env("SLACK_APP_TOKEN"),
                 allowed_slack_user_id=_require_env("ALLOWED_SLACK_USER_ID"),
                 ssh_hosts=ssh_hosts,
-                sonarr=ServiceConnection.from_env_pair("SONARR_URL", "SONARR_API_KEY"),
-                radarr=ServiceConnection.from_env_pair("RADARR_URL", "RADARR_API_KEY"),
-                sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY"),
+                sonarr=ServiceConnection.from_env_pair("SONARR_URL", "SONARR_API_KEY", 8989),
+                radarr=ServiceConnection.from_env_pair("RADARR_URL", "RADARR_API_KEY", 7878),
+                sabnzbd=ServiceConnection.from_env_pair("SABNZBD_URL", "SABNZBD_API_KEY", 8080),
                 obs=ObsConnection.from_env(),
                 github_token=os.environ.get("GITHUB_TOKEN") or None,
                 browser_bridge_token=_bridge_token(),
